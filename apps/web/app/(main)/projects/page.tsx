@@ -5,10 +5,10 @@ import ProjectSearch from "@/components/projects/project-search";
 
 export default function ProjectsPage() {
   return (
-    <div className="min-h-screen bg-bg-primary">
+    <div className="min-h-full bg-bg-primary flex flex-col">
       {/* Header */}
       <header className="sticky top-0 z-30 bg-bg-primary/80 backdrop-blur-md border-b border-border">
-        <div className="max-w-6xl mx-auto px-6 py-3 flex items-center justify-between">
+        <div className="w-full max-w-6xl mx-auto px-6 py-3 flex items-center justify-between">
           <Link href="/projects" className="flex items-center gap-3">
             <VorebaseLogo size={28} />
             <span className="text-lg font-semibold text-text-primary tracking-tight">Vorebase</span>
@@ -32,7 +32,7 @@ export default function ProjectsPage() {
       </header>
 
       {/* Main Content */}
-      <main className="max-w-6xl mx-auto px-6 py-8">
+      <main className="flex-1 w-full max-w-6xl mx-auto px-6 py-8">
         <div className="flex items-center justify-between mb-8">
           <div>
             <h1 className="text-2xl font-bold text-text-primary">Projects</h1>

@@ -17,7 +17,7 @@ export default function TableViewContent({ projectId, tableName }: { projectId: 
   if (!currentTable) return null;
 
   return (
-    <div className="flex h-full">
+    <div className="flex flex-1 h-full overflow-hidden">
       <TableSidebar
         tables={mockTables}
         selectedTable={tableName}

@@ -51,7 +51,7 @@ export default function Sidebar({ projectId, collapsed, onToggleCollapse }: Side
 
   return (
     <aside
-      className={`flex flex-col border-r border-border bg-bg-secondary transition-all duration-300 ease-in-out ${
+      className={`flex flex-col h-full border-r border-border bg-bg-secondary transition-all duration-300 ease-in-out ${
         collapsed ? "w-16" : "w-64"
       }`}
     >
@@ -91,7 +91,7 @@ export default function Sidebar({ projectId, collapsed, onToggleCollapse }: Side
           const showSection = !collapsed && item.section && item.section !== currentSection;
           if (item.section) currentSection = item.section;
 
-          return (
+          return (   
             <div key={item.href}>
               {showSection && (
                 <p className="px-3 pt-4 pb-1.5 text-[10px] font-semibold uppercase tracking-wider text-text-muted">

@@ -20,7 +20,7 @@ export default function TableEditorView() {
   const rows = mockTableRows[selectedTable] || [];
 
   return (
-    <div className="flex h-full">
+    <div className="flex flex-1 h-full overflow-hidden">
       <TableSidebar
         tables={mockTables}
         selectedTable={selectedTable}

@@ -21,7 +21,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
   }, [pathname]);
 
   return (
-    <div className="flex h-screen bg-bg-primary overflow-hidden">
+    <div className="flex h-full bg-bg-primary overflow-hidden">
       {/* Mobile Overlay */}
       {mobileOpen && (
         <div
@@ -35,7 +35,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
       <div
         className={`
           fixed inset-y-0 left-0 z-50 transition-transform duration-300 ease-in-out
-          lg:relative lg:translate-x-0 lg:z-auto
+          lg:relative lg:translate-x-0 lg:z-auto lg:flex lg:flex-shrink-0
           ${mobileOpen ? "translate-x-0" : "-translate-x-full"}
         `}
       >
@@ -56,7 +56,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
         />
 
         {/* Page Content */}
-        <main className="flex-1 overflow-y-auto">
+        <main className="flex-1 overflow-y-auto min-h-0">
           {children}
         </main>
       </div>

@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useRef, useEffect } from "react";
 import Link from "next/link";
 import { IconDatabase, IconChevronDown } from "@/lib/icons";
 import { mockProjects, getProjectById } from "@/lib/mock-data";
@@ -13,6 +13,16 @@ interface ProjectSelectorProps {
 export default function ProjectSelector({ projectId, collapsed }: ProjectSelectorProps) {
   const [showDropdown, setShowDropdown] = useState(false);
   const project = getProjectById(projectId);
+  const ref = useRef<HTMLDivElement>(null);
+
+  // Close when clicking outside
+  useEffect(() => {
+    const handler = (e: MouseEvent) => {
+      if (ref.current && !ref.current.contains(e.target as Node)) setShowDropdown(false);
+    };
+    if (showDropdown) document.addEventListener("mousedown", handler);
+    return () => document.removeEventListener("mousedown", handler);
+  }, [showDropdown]);
 
   if (collapsed) {
     return (
@@ -25,7 +35,7 @@ export default function ProjectSelector({ projectId, collapsed }: ProjectSelecto
   }
 
   return (
-    <div className="relative">
+    <div className="relative" ref={ref}>
       <button
         onClick={() => setShowDropdown(!showDropdown)}
         className="w-full flex items-center gap-2 px-2.5 py-2 rounded-lg bg-bg-tertiary hover:bg-bg-hover border border-border text-left transition-all duration-150"

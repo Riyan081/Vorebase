@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect, useRef } from "react";
 import { IconChevronDown } from "@/lib/icons";
 
 interface SortOption {
@@ -12,20 +12,40 @@ interface SortDropdownProps {
   columns: string[];
   onApply: (sort: SortOption) => void;
   onClear: () => void;
+  activeSort?: SortOption | null;
 }
 
-export default function SortDropdown({ columns, onApply, onClear }: SortDropdownProps) {
+export default function SortDropdown({ columns, onApply, onClear, activeSort }: SortDropdownProps) {
   const [open, setOpen] = useState(false);
   const [column, setColumn] = useState(columns[0] || "");
   const [direction, setDirection] = useState<"asc" | "desc">("asc");
+  const ref = useRef<HTMLDivElement>(null);
+
+  // Sync state when activeSort changes
+  useEffect(() => {
+    if (activeSort) { setColumn(activeSort.column); setDirection(activeSort.direction); }
+  }, [activeSort]);
+
+  // Close on outside click
+  useEffect(() => {
+    const handler = (e: MouseEvent) => {
+      if (ref.current && !ref.current.contains(e.target as Node)) setOpen(false);
+    };
+    if (open) document.addEventListener("mousedown", handler);
+    return () => document.removeEventListener("mousedown", handler);
+  }, [open]);
 
   return (
-    <div className="relative">
+    <div className="relative" ref={ref}>
       <button
         onClick={() => setOpen(!open)}
-        className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-border text-text-secondary hover:text-text-primary hover:bg-bg-secondary text-xs font-medium transition-all"
+        className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg border text-xs font-medium transition-all ${
+          activeSort
+            ? "border-accent bg-accent-muted/20 text-accent"
+            : "border-border text-text-secondary hover:text-text-primary hover:bg-bg-secondary"
+        }`}
       >
-        Sort
+        Sort{activeSort && " ●"}
         <IconChevronDown size={12} className={`transition-transform ${open ? "rotate-180" : ""}`} />
       </button>
 
@@ -58,7 +78,7 @@ export default function SortDropdown({ columns, onApply, onClear }: SortDropdown
           </div>
           <div className="flex items-center gap-2 mt-3">
             <button
-              onClick={() => { onClear(); setOpen(false); }}
+              onClick={() => { onClear(); setDirection("asc"); setOpen(false); }}
               className="flex-1 px-3 py-1.5 rounded-lg border border-border text-xs text-text-secondary hover:bg-bg-secondary transition-all"
             >
               Clear

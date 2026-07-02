@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+
 import { IconPlus, IconX } from "@/lib/icons";
 
 interface Tab {

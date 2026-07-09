@@ -1,7 +1,7 @@
 {
-  "name": "ws-server",
+  "name": "auth-service",
   "version": "1.0.0",
-  "description": "Vorebase Realtime Service — WebSocket server for live database change events",
+  "description": "Vorebase Authentication Service — signup, signin, JWT, API keys",
   "main": "dist/index.js",
   "type": "commonjs",
   "scripts": {
@@ -14,7 +14,9 @@
     "@repo/db": "workspace:*",
     "fastify": "^5.3.3",
     "@fastify/cors": "^11.0.0",
-    "@fastify/websocket": "^11.0.2"
+    "@fastify/helmet": "^13.0.1",
+    "@fastify/rate-limit": "^10.2.1",
+    "mysql2": "^3.14.0"
   },
   "devDependencies": {
     "@repo/typescript-config": "workspace:*",

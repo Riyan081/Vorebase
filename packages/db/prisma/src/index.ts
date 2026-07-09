@@ -10,3 +10,17 @@ export const prismaClient: PrismaClient =
 if (process.env.NODE_ENV !== "production") {
   globalForPrisma.prisma = prismaClient;
 }
+
+// Re-export Prisma types for use in other packages
+export { PrismaClient };
+export type {
+  AdminUser,
+  Project,
+  ApiKey,
+  User,
+  RefreshToken,
+  StorageBucket,
+  StorageObject,
+  RlsPolicy,
+  ChangeEvent,
+} from "@prisma/client";

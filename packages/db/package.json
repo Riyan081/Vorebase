@@ -1,21 +1,27 @@
 {
   "name": "@repo/db",
   "version": "1.0.0",
-  "description": "",
-  "main": "index.js",
-  "devDependencies": {
-    "@repo/typescript-config": "workspace:*",
-    "@types/node": "^22.15.3"
-  },
+  "description": "Vorebase platform database — Prisma + MySQL",
+  "main": "prisma/src/index.ts",
   "exports": {
     "./client": "./prisma/src/index.ts"
   },
-  "keywords": [],
-  "author": "",
-  "license": "ISC",
-  
+  "scripts": {
+    "db:generate": "prisma generate",
+    "db:migrate": "prisma migrate dev",
+    "db:push": "prisma db push",
+    "db:studio": "prisma studio"
+  },
   "dependencies": {
     "@prisma/client": "6.19.1",
+    "dotenv": "^16.5.0"
+  },
+  "devDependencies": {
+    "@repo/typescript-config": "workspace:*",
+    "@types/node": "^22.15.3",
     "prisma": "6.19.1"
-  }
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC"
 }

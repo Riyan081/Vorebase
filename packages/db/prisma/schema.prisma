@@ -1,24 +1,171 @@
-// This is your Prisma schema file,
-// learn more about it in the docs: https://pris.ly/d/prisma-schema
-
-// Looking for ways to speed up your queries, or scale easily with your serverless or edge functions?
-// Try Prisma Accelerate: https://pris.ly/cli/accelerate-init
+// This is the Vorebase platform schema.
+// Provider: MySQL 8.0
+// These are INTERNAL platform tables — NOT the user's project tables.
+// User project tables are managed dynamically via raw SQL (mysql2).
 
 generator client {
   provider = "prisma-client-js"
-  
 }
 
 datasource db {
-  provider = "postgresql"
+  provider = "mysql"
   url      = env("DATABASE_URL")
 }
 
-model User{
-  id       String   @id @default(uuid())
-  username     String   @unique
-  
-  password  String
+// ============================================
+// PLATFORM MODELS (Vorebase internal)
+// ============================================
+
+model AdminUser {
+  id        String   @id @default(uuid())
+  email     String   @unique
+  password  String   // bcrypt hashed
+  role      String   @default("admin") // admin | super_admin
   createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  projects  Project[]
 }
 
+model Project {
+  id          String   @id @default(uuid())
+  name        String
+  description String?  @db.Text
+  dbName      String   @unique // the MySQL database name for this project
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  adminId     String
+  admin       AdminUser @relation(fields: [adminId], references: [id])
+
+  apiKeys     ApiKey[]
+  users       User[]
+  buckets     StorageBucket[]
+  rlsPolicies RlsPolicy[]
+
+  @@index([adminId])
+}
+
+model ApiKey {
+  id        String   @id @default(uuid())
+  keyHash   String   @unique // SHA-256 hash of the actual key (never store plaintext)
+  keyPrefix String   // First 8 chars of the key for identification (e.g., "vb_anon_")
+  name      String   // "anon" | "service_role"
+  role      String   // "anon" | "service_role"
+  projectId String
+  project   Project  @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  createdAt DateTime @default(now())
+
+  @@index([projectId])
+}
+
+// ============================================
+// AUTH MODELS (per-project user management)
+// ============================================
+
+model User {
+  id           String    @id @default(uuid())
+  email        String
+  password     String    // bcrypt hashed
+  role         String    @default("authenticated")
+  metadata     Json?     // user_metadata
+  appMetadata  Json?     // app_metadata
+  lastSignInAt DateTime?
+  createdAt    DateTime  @default(now())
+  updatedAt    DateTime  @updatedAt
+
+  projectId    String
+  project      Project   @relation(fields: [projectId], references: [id], onDelete: Cascade)
+
+  refreshTokens RefreshToken[]
+
+  @@unique([email, projectId])
+  @@index([projectId])
+}
+
+model RefreshToken {
+  id        String    @id @default(uuid())
+  token     String    @unique @db.VarChar(512)
+  userId    String
+  user      User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  expiresAt DateTime
+  revokedAt DateTime?
+  createdAt DateTime  @default(now())
+
+  @@index([userId])
+  @@index([token])
+}
+
+// ============================================
+// STORAGE MODELS
+// ============================================
+
+model StorageBucket {
+  id               String   @id @default(uuid())
+  name             String
+  isPublic         Boolean  @default(false)
+  fileSizeLimit    Int?     // in bytes
+  allowedMimeTypes Json?    // ["image/*", "application/pdf"]
+  projectId        String
+  project          Project  @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime @updatedAt
+
+  objects          StorageObject[]
+
+  @@unique([name, projectId])
+  @@index([projectId])
+}
+
+model StorageObject {
+  id        String        @id @default(uuid())
+  name      String        // file path within bucket
+  bucketId  String
+  bucket    StorageBucket @relation(fields: [bucketId], references: [id], onDelete: Cascade)
+  ownerId   String?       // user who uploaded
+  mimeType  String?
+  size      Int?          // in bytes
+  metadata  Json?
+  createdAt DateTime      @default(now())
+  updatedAt DateTime      @updatedAt
+
+  @@unique([name, bucketId])
+  @@index([bucketId])
+}
+
+// ============================================
+// VIRTUAL RLS POLICIES
+// ============================================
+
+model RlsPolicy {
+  id        String   @id @default(uuid())
+  name      String
+  tableName String
+  operation String   // SELECT | INSERT | UPDATE | DELETE | ALL
+  check     Json     // policy expression: { "column": "user_id", "op": "eq", "value": "auth.uid()" }
+  roles     Json     @default("[\"authenticated\"]") // which roles this applies to
+  projectId String
+  project   Project  @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  isEnabled Boolean  @default(true)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([projectId, tableName])
+}
+
+// ============================================
+// REALTIME CHANGE TRACKING (for CDC)
+// ============================================
+
+model ChangeEvent {
+  id        BigInt   @id @default(autoincrement())
+  tableName String
+  operation String   // INSERT | UPDATE | DELETE
+  oldData   Json?
+  newData   Json?
+  projectId String
+  createdAt DateTime @default(now())
+
+  @@index([projectId, createdAt])
+  @@index([projectId, tableName])
+}

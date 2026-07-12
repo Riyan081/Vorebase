@@ -2,7 +2,7 @@
 
 import { IconTable, IconEdit, IconTrash } from "@/lib/icons";
 import ColumnHeader from "@/components/table-editor/column-header";
-import type { TableInfo, TableRow } from "@/lib/mock-data";
+import type { TableInfo, TableRow } from "@/lib/api";
 
 interface TableGridProps {
   table: TableInfo;

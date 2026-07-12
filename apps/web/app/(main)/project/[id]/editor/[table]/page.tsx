@@ -1,15 +1,36 @@
+"use client";
+
+import { useState, useEffect } from "react";
+import { useParams } from "next/navigation";
 import Link from "next/link";
-import { mockTables } from "@/lib/mock-data";
+import { getSchema, type TableInfo } from "@/lib/api";
 import { IconTable, IconChevronLeft } from "@/lib/icons";
 import TableViewContent from "@/components/table-editor/table-view-content";
 
-export default async function TableViewPage({
-  params,
-}: {
-  params: Promise<{ id: string; table: string }>;
-}) {
-  const { id, table: tableName } = await params;
-  const currentTable = mockTables.find((t) => t.name === tableName);
+export default function TableViewPage() {
+  const params = useParams();
+  const id = params.id as string;
+  const tableName = params.table as string;
+
+  const [tables, setTables] = useState<TableInfo[]>([]);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    getSchema(id)
+      .then(setTables)
+      .catch(() => {})
+      .finally(() => setLoading(false));
+  }, [id]);
+
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center h-full">
+        <span className="w-6 h-6 border-2 border-accent/30 border-t-accent rounded-full animate-spin" />
+      </div>
+    );
+  }
+
+  const currentTable = tables.find((t) => t.name === tableName);
 
   if (!currentTable) {
     return (

@@ -1,7 +1,7 @@
 "use client";
 
 import { IconFolder, IconPlus } from "@/lib/icons";
-import type { StorageBucket } from "@/lib/mock-data";
+import type { StorageBucket } from "@/lib/api";
 
 interface BucketSidebarProps {
   buckets: StorageBucket[];
@@ -40,8 +40,8 @@ export default function BucketSidebar({ buckets, selectedBucket, onSelectBucket,
             <div className="flex-1 min-w-0">
               <p className="font-mono text-sm truncate">{bucket.name}</p>
               <div className="flex items-center gap-2 text-[10px] text-text-muted">
-                <span>{bucket.fileCount} files</span>
-                {bucket.isPublic && (
+                <span>{bucket.object_count ?? 0} files</span>
+                {bucket.is_public && (
                   <span className="px-1 py-0 rounded bg-accent-muted/50 text-accent">public</span>
                 )}
               </div>

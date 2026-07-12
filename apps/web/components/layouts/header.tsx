@@ -1,9 +1,10 @@
 "use client";
 
+import { useState, useEffect } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { IconMenu } from "@/lib/icons";
-import { getProjectById } from "@/lib/mock-data";
+import { getProject, type Project } from "@/lib/api";
 
 interface HeaderProps {
   projectId: string;
@@ -13,7 +14,11 @@ interface HeaderProps {
 
 export default function Header({ projectId, collapsed, onToggleCollapse }: HeaderProps) {
   const pathname = usePathname();
-  const project = getProjectById(projectId);
+  const [project, setProject] = useState<Project | null>(null);
+
+  useEffect(() => {
+    getProject(projectId).then(setProject).catch(() => {});
+  }, [projectId]);
 
   return (
     <header className="flex items-center justify-between px-6 border-b border-border min-h-[52px] bg-bg-primary/80 backdrop-blur-md">
@@ -29,7 +34,7 @@ export default function Header({ projectId, collapsed, onToggleCollapse }: Heade
         </Link>
         <span className="text-text-muted">/</span>
         <span className="text-text-primary font-medium">
-          {project?.name || "Unknown"}
+          {project?.name || "Loading..."}
         </span>
       </div>
       <div className="flex items-center gap-2">

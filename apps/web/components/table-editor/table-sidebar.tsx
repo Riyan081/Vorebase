@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { IconTable, IconPlus } from "@/lib/icons";
-import type { TableInfo } from "@/lib/mock-data";
+import type { TableInfo } from "@/lib/api";
 
 interface TableSidebarProps {
   tables: TableInfo[];

@@ -1,6 +1,6 @@
 "use client";
 
-import type { TableColumn } from "@/lib/mock-data";
+import type { TableColumn } from "@/lib/api";
 
 interface ColumnHeaderProps {
   column: TableColumn;

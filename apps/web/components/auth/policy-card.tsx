@@ -1,7 +1,7 @@
 "use client";
 
 import { IconEdit, IconTrash } from "@/lib/icons";
-import type { RlsPolicy } from "@/lib/mock-data";
+import type { RlsPolicy } from "@/lib/api";
 
 const operationColors: Record<string, string> = {
   SELECT: "bg-info-muted text-info",
@@ -43,7 +43,7 @@ export default function PolicyCard({ policy, onToggle, onEdit, onDelete }: Polic
             {policy.operation}
           </span>
         </div>
-        <code className="text-xs font-mono text-text-muted">{policy.check}</code>
+        <code className="text-xs font-mono text-text-muted">{typeof policy.check === 'string' ? policy.check : JSON.stringify(policy.check)}</code>
         <div className="flex items-center gap-1 mt-1">
           {policy.roles.map((role) => (
             <span key={role} className="px-1.5 py-0.5 rounded bg-bg-tertiary text-[10px] text-text-muted">

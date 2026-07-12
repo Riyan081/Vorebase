@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { formatDateTime } from "@/lib/mock-data";
+import { formatDateTime } from "@/lib/utils";
 import { IconCopy, IconCheck, IconEye, IconEyeOff } from "@/lib/icons";
 
 interface ApiKeyRowProps {

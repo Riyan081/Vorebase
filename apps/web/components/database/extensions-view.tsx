@@ -1,84 +1,123 @@
 "use client";
 
-import { useState } from "react";
-import { mockExtensions, type DbExtension } from "@/lib/mock-data";
+import { IconCode } from "@/lib/icons";
 
-const categories = ["All", ...Array.from(new Set(mockExtensions.map((e) => e.category)))];
+/**
+ * MySQL-relevant database features instead of PostgreSQL extensions.
+ * Since Vorebase uses MySQL 8.0, we show MySQL-specific capabilities.
+ */
+const mysqlFeatures = [
+  {
+    id: "json",
+    name: "JSON Support",
+    version: "8.0",
+    category: "Data Types",
+    description: "Native JSON column type with JSON_EXTRACT, JSON_SET, and JSON path expressions for semi-structured data.",
+    enabled: true,
+  },
+  {
+    id: "fulltext",
+    name: "Full-Text Search",
+    version: "8.0",
+    category: "Search",
+    description: "Built-in full-text indexing and search with MATCH AGAINST for natural language queries.",
+    enabled: true,
+  },
+  {
+    id: "uuid",
+    name: "UUID Functions",
+    version: "8.0",
+    category: "Utilities",
+    description: "UUID() and UUID_TO_BIN() for generating and storing universally unique identifiers efficiently.",
+    enabled: true,
+  },
+  {
+    id: "cte",
+    name: "Common Table Expressions",
+    version: "8.0",
+    category: "Query",
+    description: "WITH (CTE) and WITH RECURSIVE for complex hierarchical queries and readable SQL.",
+    enabled: true,
+  },
+  {
+    id: "window",
+    name: "Window Functions",
+    version: "8.0",
+    category: "Query",
+    description: "ROW_NUMBER(), RANK(), LAG(), LEAD(), and other analytic functions for advanced data analysis.",
+    enabled: true,
+  },
+  {
+    id: "spatial",
+    name: "Spatial (GIS)",
+    version: "8.0",
+    category: "Geospatial",
+    description: "Native spatial data types (POINT, POLYGON) and functions (ST_Distance, ST_Contains) for location-based queries.",
+    enabled: false,
+  },
+  {
+    id: "roles",
+    name: "Database Roles",
+    version: "8.0",
+    category: "Security",
+    description: "MySQL role-based access control. Vorebase uses application-level roles (anon, authenticated, service_role) instead.",
+    enabled: false,
+  },
+  {
+    id: "charset",
+    name: "utf8mb4 Character Set",
+    version: "8.0",
+    category: "Encoding",
+    description: "Full Unicode support including emoji characters. All Vorebase project databases use utf8mb4_unicode_ci by default.",
+    enabled: true,
+  },
+];
 
-function ExtensionRow({
-  ext,
-  onToggle,
+function FeatureRow({
+  feature,
 }: {
-  ext: DbExtension;
-  onToggle: (id: string) => void;
+  feature: (typeof mysqlFeatures)[number];
 }) {
   return (
     <div className="flex items-center gap-4 p-5 rounded-xl border border-border bg-bg-secondary hover:border-border-light transition-all">
       <div className="flex-1 min-w-0">
         <div className="flex items-center gap-2 mb-1">
-          <code className="text-sm font-bold font-mono text-text-primary">{ext.name}</code>
+          <code className="text-sm font-bold font-mono text-text-primary">{feature.name}</code>
           <span className="text-[10px] text-text-muted px-1.5 py-0.5 rounded bg-bg-tertiary font-mono">
-            v{ext.version}
+            MySQL {feature.version}
           </span>
           <span className="text-[10px] text-text-muted px-1.5 py-0.5 rounded bg-bg-tertiary">
-            {ext.category}
+            {feature.category}
           </span>
         </div>
-        <p className="text-sm text-text-secondary">{ext.description}</p>
+        <p className="text-sm text-text-secondary">{feature.description}</p>
       </div>
-      <button
-        onClick={() => onToggle(ext.id)}
-        className={`relative w-11 h-6 rounded-full transition-colors duration-200 flex-shrink-0 ${
-          ext.enabled ? "bg-accent" : "bg-bg-tertiary border border-border"
+      <span
+        className={`px-2.5 py-1 rounded-full text-xs font-medium flex-shrink-0 ${
+          feature.enabled
+            ? "bg-success-muted text-success"
+            : "bg-bg-tertiary text-text-muted"
         }`}
       >
-        <span
-          className={`absolute top-1 w-4 h-4 rounded-full bg-white shadow-sm transition-transform duration-200 ${
-            ext.enabled ? "left-[22px]" : "left-1"
-          }`}
-        />
-      </button>
+        {feature.enabled ? "Available" : "Not used"}
+      </span>
     </div>
   );
 }
 
 export default function ExtensionsView() {
-  const [extensions, setExtensions] = useState(mockExtensions);
-  const [activeCategory, setActiveCategory] = useState("All");
-
-  const toggleExtension = (extId: string) => {
-    setExtensions((prev) =>
-      prev.map((e) => (e.id === extId ? { ...e, enabled: !e.enabled } : e))
-    );
-  };
-
-  const filtered =
-    activeCategory === "All"
-      ? extensions
-      : extensions.filter((e) => e.category === activeCategory);
-
   return (
     <>
-      {/* Category filter */}
-      <div className="flex items-center gap-2 flex-wrap mb-6">
-        {categories.map((cat) => (
-          <button
-            key={cat}
-            onClick={() => setActiveCategory(cat)}
-            className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-all ${
-              activeCategory === cat
-                ? "bg-accent-muted/30 text-accent border border-accent/20"
-                : "text-text-secondary hover:text-text-primary hover:bg-bg-secondary border border-transparent"
-            }`}
-          >
-            {cat}
-          </button>
-        ))}
+      <div className="p-4 rounded-xl border border-accent/20 bg-accent-muted/10 mb-6">
+        <p className="text-sm text-text-secondary">
+          <span className="font-semibold text-accent">MySQL 8.0 Features</span> — Vorebase uses MySQL 8.0
+          as the database engine. Below are the built-in features available to your project databases.
+        </p>
       </div>
 
       <div className="space-y-3">
-        {filtered.map((ext) => (
-          <ExtensionRow key={ext.id} ext={ext} onToggle={toggleExtension} />
+        {mysqlFeatures.map((feature) => (
+          <FeatureRow key={feature.id} feature={feature} />
         ))}
       </div>
     </>

@@ -1,16 +1,38 @@
 "use client";
 
-import { useState } from "react";
-import { mockAuthUsers } from "@/lib/mock-data";
+import { useState, useEffect } from "react";
+import { useParams } from "next/navigation";
+import { listAuthUsers, deleteAuthUser, type AuthUser } from "@/lib/api";
 import UserTable from "@/components/auth/user-table";
 import CreateUserModal from "@/components/auth/create-user-modal";
 import { IconPlus, IconSearch } from "@/lib/icons";
 
 export default function UsersView() {
+  const params = useParams();
+  const projectId = params.id as string;
+
+  const [users, setUsers] = useState<AuthUser[]>([]);
+  const [totalCount, setTotalCount] = useState(0);
   const [search, setSearch] = useState("");
   const [showAddModal, setShowAddModal] = useState(false);
+  const [loading, setLoading] = useState(true);
 
-  const filteredUsers = mockAuthUsers.filter(
+  const fetchUsers = () => {
+    setLoading(true);
+    listAuthUsers(projectId)
+      .then((res) => {
+        setUsers(res.data);
+        setTotalCount(res.count);
+      })
+      .catch(() => {})
+      .finally(() => setLoading(false));
+  };
+
+  useEffect(() => {
+    if (projectId) fetchUsers();
+  }, [projectId]);
+
+  const filteredUsers = users.filter(
     (u) =>
       u.email.toLowerCase().includes(search.toLowerCase()) ||
       u.role.toLowerCase().includes(search.toLowerCase())
@@ -19,7 +41,9 @@ export default function UsersView() {
   return (
     <>
       <div className="flex items-center justify-between mb-6">
-        <p className="text-sm text-text-secondary">{mockAuthUsers.length} users in this project</p>
+        <p className="text-sm text-text-secondary">
+          {loading ? "Loading..." : `${totalCount} users in this project`}
+        </p>
         <button
           onClick={() => setShowAddModal(true)}
           className="inline-flex items-center gap-2 px-4 py-2 rounded-lg bg-accent hover:bg-accent-hover text-bg-primary text-sm font-semibold transition-all hover:shadow-glow"
@@ -40,8 +64,21 @@ export default function UsersView() {
         />
       </div>
 
-      <UserTable users={filteredUsers} />
-      <CreateUserModal isOpen={showAddModal} onClose={() => setShowAddModal(false)} />
+      {loading ? (
+        <div className="flex items-center justify-center py-12">
+          <span className="w-5 h-5 border-2 border-accent/30 border-t-accent rounded-full animate-spin" />
+        </div>
+      ) : (
+        <UserTable users={filteredUsers} />
+      )}
+      <CreateUserModal
+        isOpen={showAddModal}
+        onClose={() => {
+          setShowAddModal(false);
+          fetchUsers();
+        }}
+        projectId={projectId}
+      />
     </>
   );
 }

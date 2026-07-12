@@ -206,6 +206,106 @@ export async function adminUsersRoute(fastify: FastifyInstance) {
   );
 
   /**
+   * PUT /auth/v1/admin/users/:id
+   * Admin updates a user's role, email, password, or metadata.
+   */
+  fastify.put<{
+    Params: { id: string };
+    Body: {
+      email?: string;
+      password?: string;
+      role?: string;
+      metadata?: Record<string, unknown>;
+      appMetadata?: Record<string, unknown>;
+    };
+  }>(
+    "/auth/v1/admin/users/:id",
+    { preHandler: [fastify.requireAdmin] },
+    async (request, reply) => {
+      const admin = request.user as AdminJwtPayload;
+      const { id } = request.params;
+      const { email, password, role, metadata, appMetadata } = request.body;
+
+      // Find user and verify the admin owns the project
+      const user = await prismaClient.user.findUnique({
+        where: { id },
+        include: {
+          project: {
+            select: { id: true, adminId: true },
+          },
+        },
+      });
+
+      if (!user || user.project.adminId !== admin.sub) {
+        throw new NotFoundError("User");
+      }
+
+      const updateData: Record<string, unknown> = {};
+
+      if (email !== undefined) {
+        const normalizedEmail = email.toLowerCase().trim();
+        // Check for duplicate within the same project
+        const existing = await prismaClient.user.findFirst({
+          where: {
+            email: normalizedEmail,
+            projectId: user.projectId,
+            id: { not: id },
+          },
+        });
+        if (existing) {
+          throw new ConflictError("A user with this email already exists in this project");
+        }
+        updateData.email = normalizedEmail;
+      }
+
+      if (password !== undefined) {
+        const passwordError = validatePasswordStrength(password);
+        if (passwordError) {
+          throw new ValidationError(passwordError);
+        }
+        updateData.password = await hashPassword(password);
+      }
+
+      if (role !== undefined) {
+        const allowedRoles = ["authenticated", "anon", "service_role"];
+        if (!allowedRoles.includes(role)) {
+          throw new ValidationError(`Invalid role. Allowed: ${allowedRoles.join(", ")}`);
+        }
+        updateData.role = role;
+      }
+
+      if (metadata !== undefined) {
+        updateData.metadata = metadata;
+      }
+
+      if (appMetadata !== undefined) {
+        updateData.appMetadata = appMetadata;
+      }
+
+      if (Object.keys(updateData).length === 0) {
+        throw new ValidationError("No fields to update");
+      }
+
+      const updated = await prismaClient.user.update({
+        where: { id },
+        data: updateData,
+      });
+
+      reply.send({
+        data: {
+          id: updated.id,
+          email: updated.email,
+          role: updated.role,
+          metadata: updated.metadata,
+          app_metadata: updated.appMetadata,
+          updated_at: updated.updatedAt,
+        },
+        status: 200,
+      });
+    }
+  );
+
+  /**
    * DELETE /auth/v1/admin/users/:id
    * Delete a user and all their refresh tokens.
    */
@@ -240,3 +340,4 @@ export async function adminUsersRoute(fastify: FastifyInstance) {
     }
   );
 }
+

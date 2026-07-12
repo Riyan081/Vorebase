@@ -1,7 +1,8 @@
 "use client";
 
-import { useState } from "react";
-import { mockBuckets, mockFiles, type StorageFile } from "@/lib/mock-data";
+import { useState, useEffect } from "react";
+import { useParams } from "next/navigation";
+import { listBuckets, listObjects, type StorageBucket, type StorageFile } from "@/lib/api";
 import BucketSidebar from "@/components/storage/bucket-sidebar";
 import FileBrowser from "@/components/storage/file-browser";
 import UploadZone from "@/components/storage/upload-zone";
@@ -10,24 +11,57 @@ import FilePreview from "@/components/storage/file-preview";
 import { IconFolder, IconUpload } from "@/lib/icons";
 
 export default function StorageView() {
-  const [selectedBucket, setSelectedBucket] = useState<string>(mockBuckets[0]?.id || "");
+  const params = useParams();
+  const projectId = params.id as string;
+
+  const [buckets, setBuckets] = useState<StorageBucket[]>([]);
+  const [selectedBucket, setSelectedBucket] = useState<string>("");
+  const [files, setFiles] = useState<StorageFile[]>([]);
   const [showCreateModal, setShowCreateModal] = useState(false);
   const [previewFile, setPreviewFile] = useState<StorageFile | null>(null);
+  const [loading, setLoading] = useState(true);
 
-  const currentBucket = mockBuckets.find((b) => b.id === selectedBucket);
-  const files = mockFiles[selectedBucket] || [];
+  // Fetch buckets
+  useEffect(() => {
+    if (!projectId) return;
+    listBuckets(projectId)
+      .then((data) => {
+        setBuckets(data);
+        if (data.length > 0 && !selectedBucket) {
+          setSelectedBucket(data[0]!.id);
+        }
+      })
+      .catch(() => {})
+      .finally(() => setLoading(false));
+  }, [projectId]);
+
+  // Fetch files when bucket changes
+  useEffect(() => {
+    if (!projectId || !selectedBucket) return;
+    const bucket = buckets.find((b) => b.id === selectedBucket);
+    if (!bucket) return;
+    listObjects(projectId, bucket.name)
+      .then((res) => setFiles(res.data))
+      .catch(() => setFiles([]));
+  }, [projectId, selectedBucket, buckets]);
+
+  const currentBucket = buckets.find((b) => b.id === selectedBucket);
 
   return (
     <div className="flex h-full">
       <BucketSidebar
-        buckets={mockBuckets}
+        buckets={buckets}
         selectedBucket={selectedBucket}
         onSelectBucket={setSelectedBucket}
         onCreateBucket={() => setShowCreateModal(true)}
       />
 
       <div className="flex-1 flex flex-col overflow-hidden">
-        {currentBucket ? (
+        {loading ? (
+          <div className="flex-1 flex items-center justify-center">
+            <span className="w-5 h-5 border-2 border-accent/30 border-t-accent rounded-full animate-spin" />
+          </div>
+        ) : currentBucket ? (
           <>
             {/* Toolbar */}
             <div className="flex items-center justify-between px-4 py-3 border-b border-border bg-bg-primary">
@@ -37,9 +71,9 @@ export default function StorageView() {
                   <span className="font-mono">{currentBucket.name}</span>
                 </h2>
                 <span className="text-xs text-text-muted px-2 py-0.5 rounded-full bg-bg-secondary border border-border">
-                  {currentBucket.totalSize}
+                  {currentBucket.object_count ?? 0} files
                 </span>
-                {currentBucket.isPublic && (
+                {currentBucket.is_public && (
                   <span className="px-2 py-0.5 rounded-full bg-accent-muted text-accent text-xs font-medium">Public</span>
                 )}
               </div>
@@ -70,7 +104,7 @@ export default function StorageView() {
         )}
       </div>
 
-      <CreateBucketModal isOpen={showCreateModal} onClose={() => setShowCreateModal(false)} />
+      <CreateBucketModal isOpen={showCreateModal} onClose={() => { setShowCreateModal(false); listBuckets(projectId).then(setBuckets).catch(() => {}); }} />
       <FilePreview file={previewFile} isOpen={!!previewFile} onClose={() => setPreviewFile(null)} />
     </div>
   );

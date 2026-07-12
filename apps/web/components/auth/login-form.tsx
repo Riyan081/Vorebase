@@ -5,6 +5,8 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { VorebaseLogo } from "@/lib/icons";
 import { OAuthButtons } from "@/components/auth/oauth-buttons";
+import { adminLogin } from "@/lib/api";
+import { setToken, setRefreshToken, setAdminUser } from "@/lib/auth";
 
 export default function LoginForm() {
   const router = useRouter();
@@ -21,9 +23,19 @@ export default function LoginForm() {
     }
     setError("");
     setIsLoading(true);
-    // Mock: any email/password succeeds
-    await new Promise((r) => setTimeout(r, 800));
-    router.push("/projects");
+    try {
+      const res = await adminLogin(email, password);
+      setToken(res.data.access_token);
+      if (res.data.refresh_token) {
+        setRefreshToken(res.data.refresh_token);
+      }
+      setAdminUser(res.data.user);
+      router.push("/projects");
+    } catch (err: unknown) {
+      setError(err instanceof Error ? err.message : "Login failed");
+    } finally {
+      setIsLoading(false);
+    }
   };
 
   return (
@@ -113,12 +125,6 @@ export default function LoginForm() {
         </Link>
       </p>
 
-      {/* Demo hint */}
-      <div className="mt-4 p-3 rounded-lg bg-bg-tertiary border border-border">
-        <p className="text-xs text-text-muted text-center">
-          <span className="font-medium text-text-secondary">Demo:</span> Any email &amp; password works
-        </p>
-      </div>
     </div>
   );
 }

@@ -1,12 +1,33 @@
 "use client";
 
-import { useState } from "react";
-import { mockTables } from "@/lib/mock-data";
+import { useState, useEffect } from "react";
+import { useParams } from "next/navigation";
+import { getSchema, type TableInfo } from "@/lib/api";
 import EndpointCard from "@/components/api-docs/endpoint-card";
 import TableNav from "@/components/api-docs/table-nav";
 
 export default function ApiDocsView({ projectId }: { projectId: string }) {
-  const [activeTable, setActiveTable] = useState(mockTables[0]?.name || "");
+  const [tables, setTables] = useState<TableInfo[]>([]);
+  const [activeTable, setActiveTable] = useState("");
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    getSchema(projectId)
+      .then((schema) => {
+        setTables(schema);
+        if (schema.length > 0) setActiveTable(schema[0]!.name);
+      })
+      .catch(() => {})
+      .finally(() => setLoading(false));
+  }, [projectId]);
+
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center py-20">
+        <span className="w-6 h-6 border-2 border-accent/30 border-t-accent rounded-full animate-spin" />
+      </div>
+    );
+  }
 
   return (
     <>
@@ -16,13 +37,13 @@ export default function ApiDocsView({ projectId }: { projectId: string }) {
       </div>
 
       <TableNav
-        tables={mockTables.map((t) => t.name)}
+        tables={tables.map((t) => t.name)}
         activeTable={activeTable}
         onSelectTable={setActiveTable}
       />
 
       <div className="space-y-8">
-        {mockTables.map((table) => (
+        {tables.map((table) => (
           <div key={table.name} id={`table-${table.name}`}>
             <div className="flex items-center gap-3 mb-3">
               <h2 className="text-base font-semibold text-text-primary font-mono">{table.name}</h2>

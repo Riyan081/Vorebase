@@ -1,14 +1,9 @@
 import Link from "next/link";
-import { IconChevronRight, IconDatabase, IconGlobe, IconClock } from "@/lib/icons";
-import { formatDate, type Project } from "@/lib/mock-data";
+import { IconChevronRight, IconDatabase, IconClock } from "@/lib/icons";
+import { type Project } from "@/lib/api";
+import { formatDate } from "@/lib/utils";
 
 export default function ProjectCard({ project }: { project: Project }) {
-  const statusColors = {
-    active: "bg-accent/15 text-accent",
-    paused: "bg-warning-muted text-warning",
-    inactive: "bg-bg-tertiary text-text-muted",
-  };
-
   return (
     <Link
       href={`/project/${project.id}`}
@@ -23,41 +18,30 @@ export default function ProjectCard({ project }: { project: Project }) {
             <h3 className="text-sm font-semibold text-text-primary group-hover:text-accent transition-colors">
               {project.name}
             </h3>
-            <p className="text-xs text-text-muted font-mono">{project.dbName}</p>
+            <p className="text-xs text-text-muted font-mono">{project.db_name}</p>
           </div>
         </div>
         <IconChevronRight size={16} className="text-text-muted group-hover:text-text-secondary transition-colors mt-1" />
       </div>
 
-      <div className="flex items-center gap-4 mb-4">
-        <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium ${statusColors[project.status]}`}>
-          <span className="w-1.5 h-1.5 rounded-full bg-current" />
-          {project.status}
-        </span>
-        <span className="flex items-center gap-1 text-xs text-text-muted">
-          <IconGlobe size={12} />
-          {project.region}
-        </span>
-      </div>
-
       <div className="grid grid-cols-3 gap-3 pt-4 border-t border-border">
         <div>
-          <p className="text-lg font-semibold text-text-primary">{project.tablesCount}</p>
-          <p className="text-xs text-text-muted">Tables</p>
-        </div>
-        <div>
-          <p className="text-lg font-semibold text-text-primary">{project.usersCount.toLocaleString()}</p>
+          <p className="text-lg font-semibold text-text-primary">{project.counts?.users ?? 0}</p>
           <p className="text-xs text-text-muted">Users</p>
         </div>
         <div>
-          <p className="text-lg font-semibold text-text-primary">{project.storageUsed}</p>
-          <p className="text-xs text-text-muted">Storage</p>
+          <p className="text-lg font-semibold text-text-primary">{project.counts?.buckets ?? 0}</p>
+          <p className="text-xs text-text-muted">Buckets</p>
+        </div>
+        <div>
+          <p className="text-lg font-semibold text-text-primary">{project.counts?.rls_policies ?? 0}</p>
+          <p className="text-xs text-text-muted">Policies</p>
         </div>
       </div>
 
       <div className="mt-3 flex items-center gap-1 text-xs text-text-muted">
         <IconClock size={12} />
-        Created {formatDate(project.createdAt)}
+        Created {formatDate(project.created_at)}
       </div>
     </Link>
   );

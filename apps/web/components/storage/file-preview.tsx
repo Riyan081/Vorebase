@@ -1,8 +1,8 @@
 "use client";
 
 import { IconX } from "@/lib/icons";
-import type { StorageFile } from "@/lib/mock-data";
-import { formatBytes } from "@/lib/mock-data";
+import type { StorageFile } from "@/lib/api";
+import { formatBytes } from "@/lib/utils";
 
 interface FilePreviewProps {
   file: StorageFile | null;

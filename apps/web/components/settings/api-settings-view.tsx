@@ -1,12 +1,24 @@
 "use client";
 
-import { mockApiKeys } from "@/lib/mock-data";
+import { useState, useEffect } from "react";
+import { useParams } from "next/navigation";
+import { listApiKeys, type ApiKeyInfo } from "@/lib/api";
 import { SettingsNav } from "@/components/layouts/settings-nav";
 import ApiKeyRow from "@/components/settings/api-key-row";
 import CopyButton from "@/components/shared/copy-button";
 import { IconRefresh } from "@/lib/icons";
 
 export default function ApiSettingsView({ projectId }: { projectId: string }) {
+  const [apiKeys, setApiKeys] = useState<ApiKeyInfo[]>([]);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    listApiKeys(projectId)
+      .then(setApiKeys)
+      .catch(() => {})
+      .finally(() => setLoading(false));
+  }, [projectId]);
+
   return (
     <>
       <SettingsNav projectId={projectId} />
@@ -24,22 +36,35 @@ export default function ApiSettingsView({ projectId }: { projectId: string }) {
       <div className="mb-6">
         <div className="flex items-center justify-between mb-3">
           <h2 className="text-base font-semibold text-text-primary">API Keys</h2>
-          <button className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-border text-text-secondary hover:text-text-primary hover:bg-bg-secondary text-xs font-medium transition-all">
+          <button
+            onClick={() => { setLoading(true); listApiKeys(projectId).then(setApiKeys).catch(() => {}).finally(() => setLoading(false)); }}
+            className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-border text-text-secondary hover:text-text-primary hover:bg-bg-secondary text-xs font-medium transition-all"
+          >
             <IconRefresh size={12} />
-            Regenerate
+            Refresh
           </button>
         </div>
-        <div className="space-y-3">
-          {mockApiKeys.map((key) => (
-            <ApiKeyRow
-              key={key.id}
-              label={key.name}
-              keyValue={key.key}
-              role={key.role}
-              createdAt={key.createdAt}
-            />
-          ))}
-        </div>
+        {loading ? (
+          <div className="flex items-center justify-center py-8">
+            <span className="w-5 h-5 border-2 border-accent/30 border-t-accent rounded-full animate-spin" />
+          </div>
+        ) : apiKeys.length === 0 ? (
+          <div className="py-8 text-center rounded-xl border border-border bg-bg-secondary">
+            <p className="text-sm text-text-secondary">No API keys created yet</p>
+          </div>
+        ) : (
+          <div className="space-y-3">
+            {apiKeys.map((key) => (
+              <ApiKeyRow
+                key={key.id}
+                label={key.name}
+                keyValue={key.key_prefix + "..."}
+                role={key.role}
+                createdAt={key.created_at}
+              />
+            ))}
+          </div>
+        )}
       </div>
 
       <div className="p-4 rounded-xl border border-border bg-bg-secondary">

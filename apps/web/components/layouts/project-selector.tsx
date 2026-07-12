@@ -3,7 +3,7 @@
 import { useState, useRef, useEffect } from "react";
 import Link from "next/link";
 import { IconDatabase, IconChevronDown } from "@/lib/icons";
-import { mockProjects, getProjectById } from "@/lib/mock-data";
+import { listProjects, getProject, type Project } from "@/lib/api";
 
 interface ProjectSelectorProps {
   projectId: string;
@@ -12,8 +12,21 @@ interface ProjectSelectorProps {
 
 export default function ProjectSelector({ projectId, collapsed }: ProjectSelectorProps) {
   const [showDropdown, setShowDropdown] = useState(false);
-  const project = getProjectById(projectId);
+  const [project, setProject] = useState<Project | null>(null);
+  const [allProjects, setAllProjects] = useState<Project[]>([]);
   const ref = useRef<HTMLDivElement>(null);
+
+  // Fetch current project details
+  useEffect(() => {
+    getProject(projectId).then(setProject).catch(() => {});
+  }, [projectId]);
+
+  // Fetch all projects when dropdown opens
+  useEffect(() => {
+    if (showDropdown && allProjects.length === 0) {
+      listProjects().then(setAllProjects).catch(() => {});
+    }
+  }, [showDropdown, allProjects.length]);
 
   // Close when clicking outside
   useEffect(() => {
@@ -48,7 +61,7 @@ export default function ProjectSelector({ projectId, collapsed }: ProjectSelecto
             {project?.name || "Select Project"}
           </p>
           <p className="text-[10px] text-text-muted font-mono truncate">
-            {project?.dbName || "—"}
+            {project?.db_name || "—"}
           </p>
         </div>
         <IconChevronDown size={12} className="text-text-muted flex-shrink-0" />
@@ -56,7 +69,7 @@ export default function ProjectSelector({ projectId, collapsed }: ProjectSelecto
 
       {showDropdown && (
         <div className="absolute top-full left-0 right-0 mt-1 bg-bg-tertiary border border-border rounded-lg shadow-lg z-50 animate-scale-in overflow-hidden">
-          {mockProjects.map((p) => (
+          {allProjects.map((p) => (
             <Link
               key={p.id}
               href={`/project/${p.id}`}

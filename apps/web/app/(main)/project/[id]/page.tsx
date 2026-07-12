@@ -1,16 +1,40 @@
+"use client";
+
+import { useState, useEffect } from "react";
+import { useParams } from "next/navigation";
 import { IconTable, IconUsers, IconFolder, IconCode, IconZap, IconGlobe } from "@/lib/icons";
-import { getProjectById, mockApiKeys } from "@/lib/mock-data";
+import { getProject, listApiKeys, type Project, type ApiKeyInfo } from "@/lib/api";
 import StatCard from "@/components/shared/stat-card";
 import ConnectInfo from "@/components/shared/connect-info";
 import GettingStarted from "@/components/shared/getting-started";
 
-export default async function ProjectHomePage({
-  params,
-}: {
-  params: Promise<{ id: string }>;
-}) {
-  const { id } = await params;
-  const project = getProjectById(id);
+export default function ProjectHomePage() {
+  const params = useParams();
+  const id = params.id as string;
+  const [project, setProject] = useState<Project | null>(null);
+  const [apiKeys, setApiKeys] = useState<ApiKeyInfo[]>([]);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    Promise.all([
+      getProject(id),
+      listApiKeys(id).catch(() => []),
+    ])
+      .then(([proj, keys]) => {
+        setProject(proj);
+        setApiKeys(keys);
+      })
+      .catch(() => {})
+      .finally(() => setLoading(false));
+  }, [id]);
+
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center h-full">
+        <span className="w-6 h-6 border-2 border-accent/30 border-t-accent rounded-full animate-spin" />
+      </div>
+    );
+  }
 
   if (!project) {
     return (
@@ -27,26 +51,24 @@ export default async function ProjectHomePage({
         <h1 className="text-2xl font-bold text-text-primary mb-1">{project.name}</h1>
         <p className="text-sm text-text-secondary flex items-center gap-2">
           <IconGlobe size={14} />
-          {project.region}
-          <span className="text-text-muted">•</span>
-          <span className="font-mono">{project.dbName}</span>
+          <span className="font-mono">{project.db_name}</span>
         </p>
       </div>
 
       {/* Stats Grid */}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
-        <StatCard icon={<IconTable size={18} className="text-accent" />} label="Tables" value={String(project.tablesCount)} href={`/project/${id}/editor`} />
-        <StatCard icon={<IconUsers size={18} className="text-accent" />} label="Auth Users" value={project.usersCount.toLocaleString()} href={`/project/${id}/auth/users`} />
-        <StatCard icon={<IconFolder size={18} className="text-accent" />} label="Storage Used" value={project.storageUsed} href={`/project/${id}/storage`} />
-        <StatCard icon={<IconZap size={18} className="text-accent" />} label="API Requests (24h)" value="12.4K" href={`/project/${id}/api`} />
+        <StatCard icon={<IconTable size={18} className="text-accent" />} label="API Keys" value={String(project.counts?.api_keys ?? apiKeys.length)} href={`/project/${id}/settings/api`} />
+        <StatCard icon={<IconUsers size={18} className="text-accent" />} label="Auth Users" value={String(project.counts?.users ?? 0)} href={`/project/${id}/auth/users`} />
+        <StatCard icon={<IconFolder size={18} className="text-accent" />} label="Buckets" value={String(project.counts?.buckets ?? 0)} href={`/project/${id}/storage`} />
+        <StatCard icon={<IconZap size={18} className="text-accent" />} label="RLS Policies" value={String(project.counts?.rls_policies ?? 0)} href={`/project/${id}/auth/policies`} />
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-6">
         {/* Connection Details */}
         <ConnectInfo
           projectId={id}
-          anonKey={mockApiKeys[0]?.key || "—"}
-          serviceRoleKey={mockApiKeys[1]?.key || "—"}
+          anonKey={apiKeys.find((k) => k.role === "anon")?.key_prefix || "Generate an anon key →"}
+          serviceRoleKey={apiKeys.find((k) => k.role === "service_role")?.key_prefix || "Generate a service key →"}
         />
 
         {/* Quick Start */}

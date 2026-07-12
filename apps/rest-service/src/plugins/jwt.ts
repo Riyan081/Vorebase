@@ -75,9 +75,12 @@ export async function jwtPlugin(fastify: FastifyInstance) {
             request.user = payload;
             // Admin tokens use service_role level access
             request.userRole = ROLES.SERVICE_ROLE;
-            // Project ID comes from query param for admin tokens
+            // Project ID comes from header or query param for admin tokens
+            const headerProjectId = request.headers["x-project-id"] as string | undefined;
             const queryProjectId = (request.query as any)?.projectId;
-            if (queryProjectId) {
+            if (headerProjectId) {
+              request.projectId = headerProjectId;
+            } else if (queryProjectId) {
               request.projectId = queryProjectId;
             }
             return;

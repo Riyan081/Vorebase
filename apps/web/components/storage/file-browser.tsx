@@ -1,7 +1,8 @@
 "use client";
 
 import { IconFolder, IconEye, IconDownload, IconTrash } from "@/lib/icons";
-import { formatBytes, formatDateTime, type StorageFile } from "@/lib/mock-data";
+import type { StorageFile } from "@/lib/api";
+import { formatBytes, formatDateTime } from "@/lib/utils";
 
 function FileIcon({ mimeType }: { mimeType: string }) {
   if (mimeType.startsWith("image/")) return <span className="text-lg">🖼️</span>;

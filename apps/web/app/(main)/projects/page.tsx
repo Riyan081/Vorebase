@@ -1,9 +1,36 @@
+"use client";
+
+import { useState, useEffect } from "react";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { VorebaseLogo, IconPlus, IconLogOut } from "@/lib/icons";
-import { mockProjects } from "@/lib/mock-data";
+import { listProjects, type Project } from "@/lib/api";
+import { isAuthenticated, getAdminUser, clearToken } from "@/lib/auth";
 import ProjectSearch from "@/components/projects/project-search";
 
 export default function ProjectsPage() {
+  const router = useRouter();
+  const [projects, setProjects] = useState<Project[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState("");
+  const admin = getAdminUser();
+
+  useEffect(() => {
+    if (!isAuthenticated()) {
+      router.push("/login");
+      return;
+    }
+    listProjects()
+      .then(setProjects)
+      .catch((err) => setError(err.message))
+      .finally(() => setLoading(false));
+  }, [router]);
+
+  const handleLogout = () => {
+    clearToken();
+    router.push("/login");
+  };
+
   return (
     <div className="min-h-full bg-bg-primary flex flex-col">
       {/* Header */}
@@ -16,17 +43,17 @@ export default function ProjectsPage() {
           <div className="flex items-center gap-3">
             <div className="flex items-center gap-2 px-3 py-1.5 rounded-full bg-bg-secondary border border-border">
               <div className="w-6 h-6 rounded-full bg-accent/20 flex items-center justify-center text-xs font-semibold text-accent">
-                A
+                {admin?.email?.[0]?.toUpperCase() || "A"}
               </div>
-              <span className="text-sm text-text-secondary">admin@vorebase.io</span>
+              <span className="text-sm text-text-secondary">{admin?.email || "admin"}</span>
             </div>
-            <Link
-              href="/login"
+            <button
+              onClick={handleLogout}
               className="p-2 rounded-lg text-text-muted hover:text-text-secondary hover:bg-bg-secondary transition-all duration-150"
               title="Sign out"
             >
               <IconLogOut size={18} />
-            </Link>
+            </button>
           </div>
         </div>
       </header>
@@ -47,8 +74,17 @@ export default function ProjectsPage() {
           </Link>
         </div>
 
-        {/* ProjectSearch handles search state + renders cards */}
-        <ProjectSearch projects={mockProjects} />
+        {loading ? (
+          <div className="flex items-center justify-center py-20">
+            <span className="w-6 h-6 border-2 border-accent/30 border-t-accent rounded-full animate-spin" />
+          </div>
+        ) : error ? (
+          <div className="text-center py-20">
+            <p className="text-sm text-danger">{error}</p>
+          </div>
+        ) : (
+          <ProjectSearch projects={projects} />
+        )}
       </main>
     </div>
   );

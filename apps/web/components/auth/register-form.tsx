@@ -6,6 +6,8 @@ import { useRouter } from "next/navigation";
 import { VorebaseLogo } from "@/lib/icons";
 import { OAuthButtons } from "@/components/auth/oauth-buttons";
 import PasswordStrengthBar from "@/components/auth/password-strength";
+import { adminRegister } from "@/lib/api";
+import { setToken, setRefreshToken, setAdminUser } from "@/lib/auth";
 
 export default function RegisterForm() {
   const router = useRouter();
@@ -23,8 +25,19 @@ export default function RegisterForm() {
     }
     setError("");
     setIsLoading(true);
-    await new Promise((r) => setTimeout(r, 800));
-    router.push("/projects");
+    try {
+      const res = await adminRegister(email, password);
+      setToken(res.data.access_token);
+      if (res.data.refresh_token) {
+        setRefreshToken(res.data.refresh_token);
+      }
+      setAdminUser(res.data.user);
+      router.push("/projects");
+    } catch (err: unknown) {
+      setError(err instanceof Error ? err.message : "Registration failed");
+    } finally {
+      setIsLoading(false);
+    }
   };
 
   return (

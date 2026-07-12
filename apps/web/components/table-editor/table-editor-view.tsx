@@ -1,7 +1,8 @@
 "use client";
 
-import { useState } from "react";
-import { mockTables, mockTableRows, type TableRow } from "@/lib/mock-data";
+import { useState, useEffect } from "react";
+import { useParams } from "next/navigation";
+import { getSchema, getTableRows, type TableInfo, type TableRow } from "@/lib/api";
 import TableSidebar from "@/components/table-editor/table-sidebar";
 import TableGrid from "@/components/table-editor/table-grid";
 import CreateTableModal from "@/components/table-editor/create-table-modal";
@@ -14,20 +15,47 @@ interface ActiveFilter { column: string; operator: string; value: string; }
 interface ActiveSort { column: string; direction: "asc" | "desc"; }
 
 export default function TableEditorView() {
-  const [selectedTable, setSelectedTable] = useState<string>(mockTables[0]?.name || "");
+  const params = useParams();
+  const projectId = params.id as string;
+
+  const [tables, setTables] = useState<TableInfo[]>([]);
+  const [selectedTable, setSelectedTable] = useState<string>("");
+  const [rows, setRows] = useState<TableRow[]>([]);
   const [search, setSearch] = useState("");
   const [showCreateModal, setShowCreateModal] = useState(false);
   const [showInsertModal, setShowInsertModal] = useState(false);
   const [activeFilter, setActiveFilter] = useState<ActiveFilter | null>(null);
   const [activeSort, setActiveSort] = useState<ActiveSort | null>(null);
   const [refreshKey, setRefreshKey] = useState(0);
+  const [loading, setLoading] = useState(true);
 
-  const currentTable = mockTables.find((t) => t.name === selectedTable);
-  const baseRows: TableRow[] = mockTableRows[selectedTable] || [];
+  // Fetch schema
+  useEffect(() => {
+    if (!projectId) return;
+    getSchema(projectId)
+      .then((schema) => {
+        setTables(schema);
+        if (schema.length > 0 && !selectedTable) {
+          setSelectedTable(schema[0]!.name);
+        }
+      })
+      .catch(() => {})
+      .finally(() => setLoading(false));
+  }, [projectId]);
 
-  // Apply filter
+  // Fetch rows when table changes
+  useEffect(() => {
+    if (!projectId || !selectedTable) return;
+    getTableRows(projectId, selectedTable)
+      .then((res) => setRows(res.data))
+      .catch(() => setRows([]));
+  }, [projectId, selectedTable, refreshKey]);
+
+  const currentTable = tables.find((t) => t.name === selectedTable);
+
+  // Apply filter (client-side for now)
   const filteredRows = activeFilter
-    ? baseRows.filter((row) => {
+    ? rows.filter((row) => {
         const val = String(row[activeFilter.column] ?? "").toLowerCase();
         const filterVal = activeFilter.value.toLowerCase();
         switch (activeFilter.operator) {
@@ -43,9 +71,9 @@ export default function TableEditorView() {
           default: return true;
         }
       })
-    : baseRows;
+    : rows;
 
-  // Apply sort
+  // Apply sort (client-side)
   const sortedRows = activeSort
     ? [...filteredRows].sort((a, b) => {
         const aVal = String(a[activeSort.column] ?? "");
@@ -55,12 +83,20 @@ export default function TableEditorView() {
       })
     : filteredRows;
 
-  const rows = sortedRows;
+  const displayRows = sortedRows;
+
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center h-full">
+        <span className="w-6 h-6 border-2 border-accent/30 border-t-accent rounded-full animate-spin" />
+      </div>
+    );
+  }
 
   return (
     <div className="flex flex-1 h-full overflow-hidden">
       <TableSidebar
-        tables={mockTables}
+        tables={tables}
         selectedTable={selectedTable}
         onSelectTable={setSelectedTable}
         onCreateTable={() => setShowCreateModal(true)}
@@ -120,7 +156,7 @@ export default function TableEditorView() {
               </div>
             </div>
 
-            <TableGrid key={refreshKey} table={currentTable} rows={rows} search={search} />
+            <TableGrid key={refreshKey} table={currentTable} rows={displayRows} search={search} />
           </>
         ) : (
           <div className="flex-1 flex items-center justify-center">

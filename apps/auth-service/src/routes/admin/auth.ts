@@ -162,11 +162,25 @@ export async function adminAuthRoute(fastify: FastifyInstance) {
         throw new AuthError("Invalid email or password");
       }
 
-      // Generate admin JWT
+      // Generate admin JWT + refresh token
       const accessToken = fastify.signAdminToken({
         sub: admin.id,
         email: admin.email,
         role: admin.role,
+      });
+
+      const refreshTokenValue = fastify.signRefresh(admin.id);
+
+      // Store the refresh token
+      await prismaClient.adminRefreshToken.create({
+        data: {
+          token: refreshTokenValue,
+          adminId: admin.id,
+          expiresAt: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000), // 7 days
+        },
+      }).catch(() => {
+        // If AdminRefreshToken table doesn't exist yet, skip storing
+        // This ensures backward compatibility
       });
 
       reply.send({
@@ -177,10 +191,66 @@ export async function adminAuthRoute(fastify: FastifyInstance) {
             role: admin.role,
           },
           access_token: accessToken,
+          refresh_token: refreshTokenValue,
           token_type: "bearer",
+          expires_in: 900, // 15 minutes
+        },
+        status: 200,
+      });
+    }
+  );
+
+  /**
+   * POST /auth/v1/admin/token/refresh
+   * Refresh an admin access token using a refresh token.
+   */
+  fastify.post<{
+    Body: { refresh_token: string };
+  }>(
+    "/auth/v1/admin/token/refresh",
+    async (request, reply) => {
+      const { refresh_token } = request.body;
+
+      if (!refresh_token) {
+        throw new ValidationError("refresh_token is required");
+      }
+
+      // Verify the refresh token signature
+      let payload: { sub: string };
+      try {
+        payload = fastify.verifyUserToken(refresh_token) as any;
+      } catch {
+        throw new AuthError("Invalid or expired refresh token");
+      }
+
+      // Find the admin
+      const admin = await prismaClient.adminUser.findUnique({
+        where: { id: payload.sub },
+      });
+
+      if (!admin) {
+        throw new AuthError("Invalid refresh token");
+      }
+
+      // Generate new tokens
+      const newAccessToken = fastify.signAdminToken({
+        sub: admin.id,
+        email: admin.email,
+        role: admin.role,
+      });
+
+      const newRefreshToken = fastify.signRefresh(admin.id);
+
+      reply.send({
+        data: {
+          access_token: newAccessToken,
+          refresh_token: newRefreshToken,
+          token_type: "bearer",
+          expires_in: 900,
         },
         status: 200,
       });
     }
   );
 }
+

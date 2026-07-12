@@ -1,22 +1,49 @@
 "use client";
 
-import { useState } from "react";
-import { getProjectById } from "@/lib/mock-data";
+import { useState, useEffect } from "react";
+import { getProject, updateProject, type Project } from "@/lib/api";
 import { SettingsNav } from "@/components/layouts/settings-nav";
 import { useToast } from "@/components/shared/toast";
 
 export default function GeneralSettingsForm({ projectId }: { projectId: string }) {
-  const project = getProjectById(projectId);
-  const [projectName, setProjectName] = useState(project?.name || "");
+  const [project, setProject] = useState<Project | null>(null);
+  const [projectName, setProjectName] = useState("");
   const [isSaving, setIsSaving] = useState(false);
+  const [loading, setLoading] = useState(true);
   const { showToast } = useToast();
+
+  useEffect(() => {
+    getProject(projectId)
+      .then((proj) => {
+        setProject(proj);
+        setProjectName(proj.name);
+      })
+      .catch(() => {})
+      .finally(() => setLoading(false));
+  }, [projectId]);
 
   const handleSave = async () => {
     setIsSaving(true);
-    await new Promise((r) => setTimeout(r, 600));
-    setIsSaving(false);
-    showToast("Project settings saved successfully.", "success");
+    try {
+      await updateProject(projectId, { name: projectName });
+      showToast("Project settings saved successfully.", "success");
+    } catch (err: unknown) {
+      showToast(err instanceof Error ? err.message : "Failed to save", "error");
+    } finally {
+      setIsSaving(false);
+    }
   };
+
+  if (loading) {
+    return (
+      <>
+        <SettingsNav projectId={projectId} />
+        <div className="flex items-center justify-center py-12">
+          <span className="w-5 h-5 border-2 border-accent/30 border-t-accent rounded-full animate-spin" />
+        </div>
+      </>
+    );
+  }
 
   return (
     <>
@@ -38,20 +65,11 @@ export default function GeneralSettingsForm({ projectId }: { projectId: string }
             <label className="block text-sm font-medium text-text-secondary mb-1.5">Database Name</label>
             <input
               type="text"
-              value={project?.dbName || ""}
+              value={project?.db_name || ""}
               disabled
               className="w-full max-w-md px-3 py-2.5 rounded-lg bg-bg-tertiary border border-border text-text-muted text-sm font-mono cursor-not-allowed"
             />
             <p className="text-xs text-text-muted mt-1">Database name cannot be changed after creation.</p>
-          </div>
-          <div>
-            <label className="block text-sm font-medium text-text-secondary mb-1.5">Region</label>
-            <input
-              type="text"
-              value={project?.region || ""}
-              disabled
-              className="w-full max-w-md px-3 py-2.5 rounded-lg bg-bg-tertiary border border-border text-text-muted text-sm cursor-not-allowed"
-            />
           </div>
         </div>
         <div className="mt-6 pt-4 border-t border-border">

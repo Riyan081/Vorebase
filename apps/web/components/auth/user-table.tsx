@@ -1,7 +1,8 @@
 "use client";
 
 import { IconClock, IconTrash } from "@/lib/icons";
-import { formatDateTime, type AuthUser } from "@/lib/mock-data";
+import type { AuthUser } from "@/lib/api";
+import { formatDateTime } from "@/lib/utils";
 
 interface UserTableProps {
   users: AuthUser[];
@@ -24,7 +25,7 @@ export default function UserTable({ users, onDeleteUser }: UserTableProps) {
           <tr className="bg-bg-tertiary">
             <th className="px-4 py-3 text-left text-xs font-semibold text-text-secondary">Email</th>
             <th className="px-4 py-3 text-left text-xs font-semibold text-text-secondary">Role</th>
-            <th className="px-4 py-3 text-left text-xs font-semibold text-text-secondary">Provider</th>
+
             <th className="px-4 py-3 text-left text-xs font-semibold text-text-secondary">Last Sign In</th>
             <th className="px-4 py-3 text-left text-xs font-semibold text-text-secondary">Created</th>
             <th className="px-4 py-3 text-left text-xs font-semibold text-text-secondary w-20">Actions</th>
@@ -51,18 +52,18 @@ export default function UserTable({ users, onDeleteUser }: UserTableProps) {
                   {user.role}
                 </span>
               </td>
-              <td className="px-4 py-3 text-sm text-text-secondary">{user.provider}</td>
+
               <td className="px-4 py-3 text-sm text-text-secondary">
-                {user.lastSignIn ? (
+                {(user.lastSignInAt || user.last_sign_in_at) ? (
                   <span className="flex items-center gap-1">
                     <IconClock size={12} className="text-text-muted" />
-                    {formatDateTime(user.lastSignIn)}
+                    {formatDateTime((user.lastSignInAt || user.last_sign_in_at)!)}
                   </span>
                 ) : (
                   <span className="text-text-muted italic text-xs">Never</span>
                 )}
               </td>
-              <td className="px-4 py-3 text-sm text-text-secondary">{formatDateTime(user.createdAt)}</td>
+              <td className="px-4 py-3 text-sm text-text-secondary">{formatDateTime((user.createdAt || user.created_at)!)}</td>
               <td className="px-4 py-3">
                 <button
                   onClick={() => onDeleteUser?.(user.id)}

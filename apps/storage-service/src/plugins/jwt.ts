@@ -59,8 +59,11 @@ export async function jwtPlugin(fastify: FastifyInstance) {
             const payload = verifyToken<AdminJwtPayload>(bearerToken, secret);
             request.user = payload;
             request.userRole = ROLES.SERVICE_ROLE;
+            const headerProjectId = request.headers["x-project-id"] as string | undefined;
             const queryProjectId = (request.query as any)?.projectId;
-            if (queryProjectId) {
+            if (headerProjectId) {
+              request.projectId = headerProjectId;
+            } else if (queryProjectId) {
               request.projectId = queryProjectId;
             }
             return;

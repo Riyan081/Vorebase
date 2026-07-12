@@ -1,40 +1,68 @@
 "use client";
 
 import { useState, useRef } from "react";
-import { mockQueryHistory, mockTableRows } from "@/lib/mock-data";
+import { useParams } from "next/navigation";
+import { executeSQL } from "@/lib/api";
 import SqlEditor from "@/components/sql-editor/editor";
 import ResultsTable from "@/components/sql-editor/results-table";
 import QueryTabs from "@/components/sql-editor/query-tabs";
 import MessagesPanel from "@/components/sql-editor/messages-panel";
 import { IconX } from "@/lib/icons";
 
+interface QueryHistoryItem {
+  id: string;
+  sql: string;
+  executedAt: string;
+  duration: number;
+  rowsAffected: number;
+}
+
 export default function SqlEditorView() {
+  const params = useParams();
+  const projectId = params.id as string;
+
   const [sql, setSql] = useState("SELECT * FROM users LIMIT 10;");
-  const [results, setResults] = useState<Record<string, unknown>[]>(mockTableRows.users || []);
+  const [results, setResults] = useState<Record<string, unknown>[]>([]);
   const [isRunning, setIsRunning] = useState(false);
   const [showHistory, setShowHistory] = useState(true);
-  const [executionTime, setExecutionTime] = useState(12);
+  const [executionTime, setExecutionTime] = useState(0);
   const [copied, setCopied] = useState(false);
   const [tabs, setTabs] = useState([{ id: "1", label: "Query 1" }]);
   const [activeTab, setActiveTab] = useState("1");
   const [messages, setMessages] = useState<{ type: "success" | "error" | "info"; text: string }[]>([]);
+  const [queryHistory, setQueryHistory] = useState<QueryHistoryItem[]>([]);
   const tabCounter = useRef(1);
 
   const handleRun = async () => {
     setIsRunning(true);
     setMessages([]);
-    await new Promise((r) => setTimeout(r, 500));
-    const lower = sql.toLowerCase();
-    let resultRows: Record<string, unknown>[] = [];
-    let time = 5;
-    if (lower.includes("from users")) { resultRows = mockTableRows.users || []; time = 12; }
-    else if (lower.includes("from posts")) { resultRows = mockTableRows.posts || []; time = 8; }
-    else if (lower.includes("from comments")) { resultRows = mockTableRows.comments || []; time = 15; }
-    else { resultRows = mockTableRows.users || []; }
-    setResults(resultRows);
-    setExecutionTime(time);
-    setMessages([{ type: "success", text: `Query returned ${resultRows.length} row(s) in ${time}ms` }]);
-    setIsRunning(false);
+    const start = performance.now();
+    try {
+      const res = await executeSQL(projectId, sql);
+      const duration = Math.round(performance.now() - start);
+      const resultRows = Array.isArray(res.data) ? res.data : [];
+      setResults(resultRows);
+      setExecutionTime(duration);
+      setMessages([{ type: "success", text: `Query returned ${resultRows.length} row(s) in ${duration}ms` }]);
+
+      // Add to local history
+      setQueryHistory((prev) => [
+        {
+          id: `q_${Date.now()}`,
+          sql,
+          executedAt: new Date().toISOString(),
+          duration,
+          rowsAffected: resultRows.length,
+        },
+        ...prev,
+      ]);
+    } catch (err: unknown) {
+      const duration = Math.round(performance.now() - start);
+      setExecutionTime(duration);
+      setMessages([{ type: "error", text: err instanceof Error ? err.message : "Query execution failed" }]);
+    } finally {
+      setIsRunning(false);
+    }
   };
 
   const handleCopy = () => {
@@ -75,20 +103,26 @@ export default function SqlEditorView() {
             </button>
           </div>
           <div className="flex-1 overflow-y-auto">
-            {mockQueryHistory.map((query) => (
-              <button
-                key={query.id}
-                onClick={() => setSql(query.sql)}
-                className="w-full text-left px-3 py-3 border-b border-border hover:bg-bg-tertiary transition-colors"
-              >
-                <pre className="text-[11px] font-mono text-text-primary truncate mb-1">{query.sql}</pre>
-                <div className="flex items-center gap-2 text-[10px] text-text-muted">
-                  <span>{query.duration}ms</span>
-                  <span>•</span>
-                  <span>{query.rowsAffected} rows</span>
-                </div>
-              </button>
-            ))}
+            {queryHistory.length === 0 ? (
+              <div className="px-3 py-6 text-center">
+                <p className="text-xs text-text-muted">Run a query to see history</p>
+              </div>
+            ) : (
+              queryHistory.map((query) => (
+                <button
+                  key={query.id}
+                  onClick={() => setSql(query.sql)}
+                  className="w-full text-left px-3 py-3 border-b border-border hover:bg-bg-tertiary transition-colors"
+                >
+                  <pre className="text-[11px] font-mono text-text-primary truncate mb-1">{query.sql}</pre>
+                  <div className="flex items-center gap-2 text-[10px] text-text-muted">
+                    <span>{query.duration}ms</span>
+                    <span>•</span>
+                    <span>{query.rowsAffected} rows</span>
+                  </div>
+                </button>
+              ))
+            )}
           </div>
         </div>
       )}

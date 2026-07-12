@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import { IconX } from "@/lib/icons";
-import type { TableInfo } from "@/lib/mock-data";
+import type { TableInfo } from "@/lib/api";
 
 interface InsertRowPanelProps {
   isOpen: boolean;

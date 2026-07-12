@@ -29,6 +29,8 @@ import { tableRoutes } from "./routes/tables.js";
 import { schemaRoutes } from "./routes/schema.js";
 import { rpcRoutes } from "./routes/rpc.js";
 import { rlsManagementRoutes } from "./routes/rls-management.js";
+import { sqlRoutes } from "./routes/sql.js";
+import { tableDdlRoutes } from "./routes/table-ddl.js";
 
 const logger = createLogger("rest-service");
 
@@ -62,6 +64,12 @@ async function buildApp() {
 
   // RLS policy management
   await app.register(rlsManagementRoutes);
+
+  // Raw SQL execution (for SQL Editor)
+  await app.register(sqlRoutes);
+
+  // Table DDL management (CREATE/DROP/ALTER)
+  await app.register(tableDdlRoutes);
 
   // RPC (stored procedures)
   await app.register(rpcRoutes);

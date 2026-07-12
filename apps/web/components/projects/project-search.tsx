@@ -3,7 +3,7 @@
 import { useState } from "react";
 import Link from "next/link";
 import { IconSearch, IconPlus } from "@/lib/icons";
-import { type Project } from "@/lib/mock-data";
+import { type Project } from "@/lib/api";
 import ProjectCard from "@/components/projects/project-card";
 import EmptyState from "@/components/shared/empty-state";
 
@@ -13,7 +13,7 @@ export default function ProjectSearch({ projects }: { projects: Project[] }) {
   const filteredProjects = projects.filter(
     (p) =>
       p.name.toLowerCase().includes(search.toLowerCase()) ||
-      p.dbName.toLowerCase().includes(search.toLowerCase())
+      p.db_name.toLowerCase().includes(search.toLowerCase())
   );
 
   return (

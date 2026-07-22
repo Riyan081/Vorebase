@@ -1,3 +1,11 @@
+# To Run Project 
+ - pnpm install 
+ - cd infra
+ - docker compose up -d
+ - pnpm run dev 
+
+
+
 # @riyan081/vorebase-js
 
 > The official JavaScript/TypeScript client SDK for **Vorebase** — the open-source Supabase alternative.

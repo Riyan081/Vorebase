@@ -11,6 +11,7 @@
  */
 
 import type { FastifyInstance, FastifyRequest, FastifyReply } from "fastify";
+import fp from "fastify-plugin";
 import {
   extractBearerToken,
   AuthError,
@@ -20,7 +21,7 @@ import {
 import { prismaClient } from "@repo/db/client";
 import { hashApiKey } from "@repo/common";
 
-export async function authGuardPlugin(fastify: FastifyInstance) {
+async function authGuardPluginFn(fastify: FastifyInstance) {
   /**
    * preHandler hook: Requires a valid JWT or API key.
    * Sets request.user with the decoded payload.
@@ -110,3 +111,8 @@ declare module "fastify" {
     ) => Promise<void>;
   }
 }
+
+export const authGuardPlugin = fp(authGuardPluginFn, {
+  name: "auth-guard-plugin",
+  dependencies: ["jwt-plugin"],
+});

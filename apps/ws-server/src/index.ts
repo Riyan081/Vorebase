@@ -1,3 +1,4 @@
+import 'dotenv/config';
 /**
  * Vorebase Realtime Service — Server Bootstrap
  *
@@ -128,7 +129,7 @@ async function buildApp() {
       });
 
       // Handle errors
-      socket.on("error", (err) => {
+      socket.on("error", (err: Error) => {
         logger.error({ err, clientId }, "WebSocket error");
         channelManager.removeClient(clientId);
       });
@@ -160,7 +161,7 @@ async function buildApp() {
   });
 
   // ── Error Handler ────────────────────────────────────
-  app.setErrorHandler((error, request, reply) => {
+  app.setErrorHandler((error: import("fastify").FastifyError, request, reply) => {
     if (error instanceof AppError) {
       return reply.status(error.statusCode).send(error.toJSON());
     }

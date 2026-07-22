@@ -1,7 +1,7 @@
 {
-  "name": "@vorebase/js",
+  "name": "@riyan081/vorebase-js",
   "version": "0.1.0",
-  "description": "Vorebase JavaScript/TypeScript client SDK",
+  "description": "The official JavaScript/TypeScript client SDK for Vorebase — open-source Supabase alternative",
   "type": "module",
   "main": "./dist/index.js",
   "module": "./dist/index.js",
@@ -14,12 +14,33 @@
   },
   "files": [
     "dist",
-    "src"
+    "src",
+    "README.md"
   ],
   "scripts": {
     "build": "tsc",
-    "dev": "tsc --watch"
+    "dev": "tsc --watch",
+    "prepublishOnly": "pnpm build"
   },
+  "keywords": [
+    "vorebase",
+    "supabase",
+    "database",
+    "auth",
+    "storage",
+    "realtime",
+    "backend",
+    "sdk",
+    "client",
+    "typescript"
+  ],
+  "author": "Vorebase",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/Riyan081/Vorebase"
+  },
+  "homepage": "https://github.com/Riyan081/Vorebase#readme",
   "devDependencies": {
     "typescript": "^5.5.0"
   }

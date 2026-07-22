@@ -42,21 +42,26 @@ export async function signupRoute(fastify: FastifyInstance) {
         throw new ValidationError(passwordError);
       }
 
-      // If projectId is provided, verify the project exists
-      if (projectId) {
-        const project = await prismaClient.project.findUnique({
-          where: { id: projectId },
-        });
-        if (!project) {
-          throw new NotFoundError("Project");
-        }
+      // Read projectId from body or x-project-id header (SDK sends header)
+      const resolvedProjectId = projectId || (request.headers["x-project-id"] as string | undefined);
+
+      if (!resolvedProjectId) {
+        throw new ValidationError("projectId is required (pass in body or x-project-id header)");
       }
 
-      // Check if user already exists (per project scope)
+      // Verify the project exists
+      const project = await prismaClient.project.findUnique({
+        where: { id: resolvedProjectId },
+      });
+      if (!project) {
+        throw new NotFoundError("Project");
+      }
+
+      // Check if user already exists in this project
       const existingUser = await prismaClient.user.findFirst({
         where: {
           email: email.toLowerCase().trim(),
-          ...(projectId ? { projectId } : {}),
+          projectId: resolvedProjectId,
         },
       });
 
@@ -68,13 +73,13 @@ export async function signupRoute(fastify: FastifyInstance) {
       // Hash password
       const hashedPassword = await hashPassword(password);
 
-      // Create user
+      // Create user — projectId is required by schema
       const user = await prismaClient.user.create({
         data: {
           email: email.toLowerCase().trim(),
           password: hashedPassword,
           role: "authenticated",
-          ...(projectId ? { projectId } : {}),
+          projectId: resolvedProjectId,
         },
       });
 

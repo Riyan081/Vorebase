@@ -1,1 +1,1 @@
-{"root":["./src/index.ts"],"version":"5.9.2"}
+{"root":["./src/index.ts","./src/cdc/mysql-poller.ts","./src/cdc/trigger-manager.ts","./src/channels/handler.ts","./src/channels/manager.ts"],"version":"5.9.2"}

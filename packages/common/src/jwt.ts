@@ -49,7 +49,9 @@ export function signRefreshToken(
   secret: string
 ): string {
   assertSecretStrength(secret);
-  return jwt.sign(payload, secret, {
+  // Add a unique jti (JWT ID) so two tokens created at the same second are distinct
+  const nonce = Math.random().toString(36).substring(2, 10);
+  return jwt.sign({ ...payload, jti: nonce }, secret, {
     expiresIn: JWT.REFRESH_TOKEN_EXPIRY,
   });
 }

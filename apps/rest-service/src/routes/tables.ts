@@ -22,7 +22,7 @@ import {
   compileDeleteQuery,
 } from "../compiler/index.js";
 import { evaluateRls } from "../plugins/rls.js";
-import { validateTableAccess } from "../utils/sanitize.js";
+import { validateTableAccess, escapeIdentifier } from "../utils/sanitize.js";
 import { tableExists } from "../utils/introspect.js";
 
 export async function tableRoutes(fastify: FastifyInstance) {
@@ -35,7 +35,7 @@ export async function tableRoutes(fastify: FastifyInstance) {
     Querystring: Record<string, string | undefined>;
   }>(
     "/rest/v1/:table",
-    { preHandler: [fastify.authenticateRequest] },
+    { preHandler: [fastify.authenticateAndAttachDb] },
     async (request, reply) => {
       const { table } = request.params;
       const pool = request.dbPool;
@@ -71,16 +71,18 @@ export async function tableRoutes(fastify: FastifyInstance) {
       });
 
       // Execute
-      const [rows] = await pool.execute(compiled.sql, compiled.params);
+      const [rows] = await pool.execute(compiled.sql, compiled.params as any[]);
 
       // Get total count (without pagination) for the response
       // Use a count query with the same WHERE clause
+      // SECURITY: Use escapeIdentifier for table name — never raw interpolation
       let count = (rows as any[]).length;
       try {
-        const countSql = `SELECT COUNT(*) as total FROM \`${table}\`${
+        const escapedTableForCount = escapeIdentifier(table);
+        const countSql = `SELECT COUNT(*) as total FROM ${escapedTableForCount}${
           rls.sql ? ` WHERE ${rls.sql}` : ""
         }`;
-        const [countResult] = await pool.execute(countSql, rls.params);
+        const [countResult] = await pool.execute(countSql, rls.params as any[]);
         count = (countResult as any[])[0]?.total ?? count;
       } catch {
         // If count fails, use the length of returned rows
@@ -103,7 +105,7 @@ export async function tableRoutes(fastify: FastifyInstance) {
     Body: Record<string, unknown> | Record<string, unknown>[];
   }>(
     "/rest/v1/:table",
-    { preHandler: [fastify.authenticateRequest] },
+    { preHandler: [fastify.authenticateAndAttachDb] },
     async (request, reply) => {
       const { table } = request.params;
       const pool = request.dbPool;
@@ -130,14 +132,13 @@ export async function tableRoutes(fastify: FastifyInstance) {
       // RLS for INSERT doesn't inject WHERE, but can deny the operation entirely
       // (the evaluateRls function throws RlsViolationError if denied)
 
-      const body = request.body;
-      if (!body || (typeof body === "object" && Object.keys(body).length === 0)) {
-        throw new ValidationError("Request body is required for INSERT");
-      }
+      // Empty body is valid — all columns may have defaults (e.g. id AUTO_INCREMENT, created_at DEFAULT CURRENT_TIMESTAMP)
+      // MySQL will fill them in automatically, same as Supabase behavior
+      const body = request.body ?? {};
 
       // Compile and execute
       const compiled = compileInsertQuery(table, body);
-      const [result] = await pool.execute(compiled.sql, compiled.params);
+      const [result] = await pool.execute(compiled.sql, compiled.params as any[]);
 
       const insertResult = result as any;
 
@@ -162,7 +163,7 @@ export async function tableRoutes(fastify: FastifyInstance) {
     Body: Record<string, unknown>;
   }>(
     "/rest/v1/:table",
-    { preHandler: [fastify.authenticateRequest] },
+    { preHandler: [fastify.authenticateAndAttachDb] },
     async (request, reply) => {
       const { table } = request.params;
       const pool = request.dbPool;
@@ -203,7 +204,7 @@ export async function tableRoutes(fastify: FastifyInstance) {
         body
       );
 
-      const [result] = await pool.execute(compiled.sql, compiled.params);
+      const [result] = await pool.execute(compiled.sql, compiled.params as any[]);
       const updateResult = result as any;
 
       reply.send({
@@ -225,7 +226,7 @@ export async function tableRoutes(fastify: FastifyInstance) {
     Querystring: Record<string, string | undefined>;
   }>(
     "/rest/v1/:table",
-    { preHandler: [fastify.authenticateRequest] },
+    { preHandler: [fastify.authenticateAndAttachDb] },
     async (request, reply) => {
       const { table } = request.params;
       const pool = request.dbPool;
@@ -258,7 +259,7 @@ export async function tableRoutes(fastify: FastifyInstance) {
           : { sql: rls.sql, params: rls.params },
       });
 
-      const [result] = await pool.execute(compiled.sql, compiled.params);
+      const [result] = await pool.execute(compiled.sql, compiled.params as any[]);
       const deleteResult = result as any;
 
       reply.send({

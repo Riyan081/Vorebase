@@ -9,6 +9,7 @@
  */
 
 import type { FastifyInstance } from "fastify";
+import fp from "fastify-plugin";
 import * as Minio from "minio";
 import { createLogger } from "@repo/common";
 
@@ -21,7 +22,7 @@ declare module "fastify" {
   }
 }
 
-export async function minioPlugin(fastify: FastifyInstance) {
+async function minioPluginFn(fastify: FastifyInstance) {
   const endPoint = process.env.MINIO_ENDPOINT || "localhost";
   const port = parseInt(process.env.MINIO_PORT || "9000", 10);
   const accessKey = process.env.MINIO_ACCESS_KEY || "minioadmin";
@@ -50,3 +51,5 @@ export async function minioPlugin(fastify: FastifyInstance) {
 
   fastify.decorate("minio", client);
 }
+
+export const minioPlugin = fp(minioPluginFn, { name: "minio-plugin" });

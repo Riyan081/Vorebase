@@ -1,1 +1,1 @@
-{"root":["./src/index.ts"],"version":"5.9.2"}
+{"root":["./src/index.ts","./src/compiler/filter.ts","./src/compiler/index.ts","./src/compiler/operators.ts","./src/compiler/order.ts","./src/compiler/pagination.ts","./src/compiler/select.ts","./src/plugins/db-connection.ts","./src/plugins/jwt.ts","./src/plugins/rls.ts","./src/routes/rls-management.ts","./src/routes/rpc.ts","./src/routes/schema.ts","./src/routes/sql.ts","./src/routes/table-ddl.ts","./src/routes/tables.ts","./src/utils/introspect.ts","./src/utils/sanitize.ts"],"version":"5.9.2"}

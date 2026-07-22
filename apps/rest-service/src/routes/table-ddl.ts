@@ -71,7 +71,7 @@ export async function tableDdlRoutes(fastify: FastifyInstance) {
     };
   }>(
     "/rest/v1/schema/tables",
-    { preHandler: [fastify.authenticateRequest] },
+    { preHandler: [fastify.authenticateAndAttachDb] },
     async (request, reply) => {
       assertDdlAccess(request.userRole);
 
@@ -112,11 +112,19 @@ export async function tableDdlRoutes(fastify: FastifyInstance) {
         }
 
         if (col.defaultValue !== undefined && col.defaultValue !== null) {
-          // Simple default value handling
-          if (col.defaultValue === "CURRENT_TIMESTAMP" || col.defaultValue === "NOW()") {
-            def += ` DEFAULT ${col.defaultValue}`;
+          // SECURITY: Whitelist allowed MySQL expression defaults
+          const ALLOWED_EXPR_DEFAULTS = [
+            "CURRENT_TIMESTAMP", "NOW()", "CURRENT_DATE", "CURRENT_TIME",
+            "UUID()", "NULL", "TRUE", "FALSE",
+          ];
+          const upperDefault = col.defaultValue.toUpperCase().trim();
+          if (ALLOWED_EXPR_DEFAULTS.includes(upperDefault)) {
+            def += ` DEFAULT ${upperDefault}`;
           } else {
-            def += ` DEFAULT '${col.defaultValue.replace(/'/g, "''")}'`;
+            // For literal values, use escaped single quotes (MySQL standard escaping)
+            // Strip any control characters for safety
+            const sanitized = col.defaultValue.replace(/[\x00-\x1f\x7f]/g, "").replace(/'/g, "''");
+            def += ` DEFAULT '${sanitized}'`;
           }
         }
 
@@ -170,7 +178,7 @@ export async function tableDdlRoutes(fastify: FastifyInstance) {
    */
   fastify.delete<{ Params: { table: string } }>(
     "/rest/v1/schema/tables/:table",
-    { preHandler: [fastify.authenticateRequest] },
+    { preHandler: [fastify.authenticateAndAttachDb] },
     async (request, reply) => {
       assertDdlAccess(request.userRole);
 
@@ -211,7 +219,7 @@ export async function tableDdlRoutes(fastify: FastifyInstance) {
     Body: ColumnDefinition;
   }>(
     "/rest/v1/schema/tables/:table/columns",
-    { preHandler: [fastify.authenticateRequest] },
+    { preHandler: [fastify.authenticateAndAttachDb] },
     async (request, reply) => {
       assertDdlAccess(request.userRole);
 
@@ -236,10 +244,16 @@ export async function tableDdlRoutes(fastify: FastifyInstance) {
       }
 
       if (col.defaultValue !== undefined && col.defaultValue !== null) {
-        if (col.defaultValue === "CURRENT_TIMESTAMP" || col.defaultValue === "NOW()") {
-          alterSql += ` DEFAULT ${col.defaultValue}`;
+        const ALLOWED_EXPR_DEFAULTS = [
+          "CURRENT_TIMESTAMP", "NOW()", "CURRENT_DATE", "CURRENT_TIME",
+          "UUID()", "NULL", "TRUE", "FALSE",
+        ];
+        const upperDefault = col.defaultValue.toUpperCase().trim();
+        if (ALLOWED_EXPR_DEFAULTS.includes(upperDefault)) {
+          alterSql += ` DEFAULT ${upperDefault}`;
         } else {
-          alterSql += ` DEFAULT '${col.defaultValue.replace(/'/g, "''")}'`;
+          const sanitized = col.defaultValue.replace(/[\x00-\x1f\x7f]/g, "").replace(/'/g, "''");
+          alterSql += ` DEFAULT '${sanitized}'`;
         }
       }
 
@@ -280,7 +294,7 @@ export async function tableDdlRoutes(fastify: FastifyInstance) {
    */
   fastify.delete<{ Params: { table: string; column: string } }>(
     "/rest/v1/schema/tables/:table/columns/:column",
-    { preHandler: [fastify.authenticateRequest] },
+    { preHandler: [fastify.authenticateAndAttachDb] },
     async (request, reply) => {
       assertDdlAccess(request.userRole);
 

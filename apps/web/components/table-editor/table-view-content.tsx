@@ -131,7 +131,7 @@ export default function TableViewContent({ projectId, tableName }: { projectId: 
               </div>
             </div>
 
-            <TableGrid key={refreshKey} table={currentTable} rows={displayRows} search={search} />
+            <TableGrid key={refreshKey} table={currentTable} rows={displayRows} search={search} projectId={projectId} onDataChanged={() => setRefreshKey((k) => k + 1)} />
           </>
         ) : (
           <div className="flex-1 flex items-center justify-center">
@@ -140,7 +140,7 @@ export default function TableViewContent({ projectId, tableName }: { projectId: 
         )}
       </div>
 
-      <InsertRowPanel isOpen={showInsertModal} onClose={() => setShowInsertModal(false)} table={currentTable || null} />
+      <InsertRowPanel isOpen={showInsertModal} onClose={() => setShowInsertModal(false)} table={currentTable || null} projectId={projectId} onRowInserted={() => setRefreshKey((k) => k + 1)} />
     </div>
   );
 }

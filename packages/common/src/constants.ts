@@ -64,10 +64,10 @@ export const ROLES = {
 // Rate Limiting
 // ==========================================
 export const RATE_LIMITS = {
-  /** Auth endpoints: max requests per minute per IP */
-  AUTH_MAX_PER_MINUTE: 5,
+  /** Auth endpoints: max requests per minute per IP (raise for dev, lower for prod) */
+  AUTH_MAX_PER_MINUTE: 100,
   /** General API: max requests per minute per IP */
-  API_MAX_PER_MINUTE: 60,
+  API_MAX_PER_MINUTE: 200,
 } as const;
 
 // ==========================================

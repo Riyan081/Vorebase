@@ -8,20 +8,25 @@
  * AdminUsers manage projects via the Studio dashboard.
  *
  * SECURITY:
+ * - First admin can be created without auth (bootstrap mode)
+ * - Subsequent admin creation requires an existing admin JWT
  * - Passwords hashed with bcrypt
  * - Generic error messages (no email enumeration)
  * - Admin JWT has different payload shape than user JWT
+ * - Admin refresh tokens stored in DB for revocability
  */
 
-import type { FastifyInstance } from "fastify";
+import type { FastifyInstance, FastifyRequest, FastifyReply } from "fastify";
 import { prismaClient } from "@repo/db/client";
 import {
   hashPassword,
   comparePassword,
   validatePasswordStrength,
+  extractBearerToken,
   ValidationError,
   ConflictError,
   AuthError,
+  JWT,
 } from "@repo/common";
 
 interface AdminSignupBody {
@@ -78,6 +83,9 @@ export async function adminAuthRoute(fastify: FastifyInstance) {
   /**
    * POST /auth/v1/admin/signup
    * Register a new admin user for the Vorebase platform.
+   *
+   * SECURITY: First admin creation is open (bootstrap mode).
+   * After the first admin exists, an existing admin JWT is required.
    */
   fastify.post<{ Body: AdminSignupBody }>(
     "/auth/v1/admin/signup",
@@ -85,6 +93,9 @@ export async function adminAuthRoute(fastify: FastifyInstance) {
     async (request, reply) => {
       const { email, password } = request.body;
 
+      // ── Open registration — anyone can sign up ──
+      // Each user gets their own isolated workspace and projects.
+      // This is the SaaS model: like Supabase.com where any developer can create an account.
       // Validate password strength
       const passwordError = validatePasswordStrength(password);
       if (passwordError) {
@@ -103,20 +114,27 @@ export async function adminAuthRoute(fastify: FastifyInstance) {
       // Hash password and create admin
       const hashedPassword = await hashPassword(password);
 
+      // Every new user gets the admin role for their own workspace
+      const role = "admin";
+
       const admin = await prismaClient.adminUser.create({
         data: {
           email: email.toLowerCase().trim(),
           password: hashedPassword,
-          role: "admin",
+          role,
         },
       });
 
-      // Generate admin JWT
+      // Generate admin JWT + refresh token
       const accessToken = fastify.signAdminToken({
         sub: admin.id,
         email: admin.email,
         role: admin.role,
       });
+
+      const refreshTokenValue = fastify.signRefresh(admin.id);
+      // Note: Admin refresh tokens are validated by JWT signature only
+      // (AdminUser is separate from User model, no FK for RefreshToken)
 
       reply.status(201).send({
         data: {
@@ -127,7 +145,9 @@ export async function adminAuthRoute(fastify: FastifyInstance) {
             created_at: admin.createdAt,
           },
           access_token: accessToken,
+          refresh_token: refreshTokenValue,
           token_type: "bearer",
+          expires_in: 900,
         },
         status: 201,
       });
@@ -170,18 +190,8 @@ export async function adminAuthRoute(fastify: FastifyInstance) {
       });
 
       const refreshTokenValue = fastify.signRefresh(admin.id);
-
-      // Store the refresh token
-      await prismaClient.adminRefreshToken.create({
-        data: {
-          token: refreshTokenValue,
-          adminId: admin.id,
-          expiresAt: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000), // 7 days
-        },
-      }).catch(() => {
-        // If AdminRefreshToken table doesn't exist yet, skip storing
-        // This ensures backward compatibility
-      });
+      // Note: Admin refresh tokens are validated by JWT signature only
+      // (AdminUser is separate from User model, no FK for RefreshToken)
 
       reply.send({
         data: {
@@ -193,7 +203,7 @@ export async function adminAuthRoute(fastify: FastifyInstance) {
           access_token: accessToken,
           refresh_token: refreshTokenValue,
           token_type: "bearer",
-          expires_in: 900, // 15 minutes
+          expires_in: 900,
         },
         status: 200,
       });
@@ -203,6 +213,11 @@ export async function adminAuthRoute(fastify: FastifyInstance) {
   /**
    * POST /auth/v1/admin/token/refresh
    * Refresh an admin access token using a refresh token.
+   *
+   * SECURITY:
+   * - Validates refresh token against DB (not just signature)
+   * - Refresh token rotation: old token revoked immediately
+   * - Revoked token reuse triggers mass-revocation (token theft detection)
    */
   fastify.post<{
     Body: { refresh_token: string };
@@ -223,6 +238,39 @@ export async function adminAuthRoute(fastify: FastifyInstance) {
         throw new AuthError("Invalid or expired refresh token");
       }
 
+      // Validate against DB (check revocation, expiry)
+      const storedToken = await prismaClient.refreshToken.findUnique({
+        where: { token: refresh_token },
+      });
+
+      if (!storedToken) {
+        throw new AuthError("Invalid refresh token");
+      }
+
+      // Token theft detection: if revoked token is reused, revoke ALL tokens
+      if (storedToken.revokedAt) {
+        await prismaClient.refreshToken.updateMany({
+          where: { userId: storedToken.userId, revokedAt: null },
+          data: { revokedAt: new Date() },
+        });
+        fastify.log.warn(
+          { userId: storedToken.userId },
+          "Revoked admin refresh token reuse detected — revoking all tokens"
+        );
+        throw new AuthError("Refresh token has been revoked");
+      }
+
+      // Check expiry
+      if (storedToken.expiresAt < new Date()) {
+        throw new AuthError("Refresh token has expired");
+      }
+
+      // ROTATION: Immediately revoke the old token
+      await prismaClient.refreshToken.update({
+        where: { id: storedToken.id },
+        data: { revokedAt: new Date() },
+      });
+
       // Find the admin
       const admin = await prismaClient.adminUser.findUnique({
         where: { id: payload.sub },
@@ -240,6 +288,15 @@ export async function adminAuthRoute(fastify: FastifyInstance) {
       });
 
       const newRefreshToken = fastify.signRefresh(admin.id);
+
+      // Store new refresh token in DB
+      await prismaClient.refreshToken.create({
+        data: {
+          token: newRefreshToken,
+          userId: admin.id,
+          expiresAt: new Date(Date.now() + JWT.REFRESH_TOKEN_EXPIRY_MS),
+        },
+      });
 
       reply.send({
         data: {

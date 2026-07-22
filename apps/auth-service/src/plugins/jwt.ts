@@ -6,6 +6,7 @@
  */
 
 import type { FastifyInstance, FastifyRequest } from "fastify";
+import fp from "fastify-plugin";
 import {
   signAccessToken,
   signAdminAccessToken,
@@ -34,7 +35,7 @@ declare module "fastify" {
   }
 }
 
-export async function jwtPlugin(fastify: FastifyInstance) {
+async function jwtPluginFn(fastify: FastifyInstance) {
   const secret = process.env.JWT_SECRET;
   if (!secret || secret.length < 32) {
     throw new Error(
@@ -76,3 +77,7 @@ export async function jwtPlugin(fastify: FastifyInstance) {
     return verifyToken<AdminJwtPayload>(token, secret);
   });
 }
+
+export const jwtPlugin = fp(jwtPluginFn, {
+  name: "jwt-plugin",
+});

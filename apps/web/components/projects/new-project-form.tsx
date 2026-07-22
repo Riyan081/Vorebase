@@ -3,40 +3,32 @@
 import { useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { IconChevronLeft, IconDatabase, IconGlobe } from "@/lib/icons";
+import { IconDatabase } from "@/lib/icons";
 import { useToast } from "@/components/shared/toast";
-
-const regions = [
-  { id: "us-east-1", name: "US East (N. Virginia)", flag: "🇺🇸" },
-  { id: "us-west-2", name: "US West (Oregon)", flag: "🇺🇸" },
-  { id: "eu-west-1", name: "EU West (Ireland)", flag: "🇮🇪" },
-  { id: "eu-central-1", name: "EU Central (Frankfurt)", flag: "🇩🇪" },
-  { id: "ap-south-1", name: "Asia Pacific (Mumbai)", flag: "🇮🇳" },
-  { id: "ap-southeast-1", name: "Asia Pacific (Singapore)", flag: "🇸🇬" },
-];
+import { createProject } from "@/lib/api";
 
 export default function NewProjectForm() {
   const router = useRouter();
   const { showToast } = useToast();
   const [name, setName] = useState("");
-  const [dbName, setDbName] = useState("");
-  const [region, setRegion] = useState("us-east-1");
+  const [description, setDescription] = useState("");
   const [isLoading, setIsLoading] = useState(false);
-
-  const handleNameChange = (value: string) => {
-    setName(value);
-    setDbName(value.toLowerCase().replace(/[^a-z0-9]+/g, "_").replace(/^_|_$/g, "") + "_db");
-  };
+  const [error, setError] = useState("");
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (!name.trim()) return;
+
+    setError("");
     setIsLoading(true);
     try {
-      await new Promise((resolve) => setTimeout(resolve, 1000));
-      showToast(`Project "${name}" created successfully!`, "success");
-      router.push("/projects");
-    } catch {
-      showToast("Failed to create project. Please try again.", "error");
+      const project = await createProject(name.trim(), description.trim() || undefined);
+      showToast(`Project "${project.name}" created successfully!`, "success");
+      router.push(`/project/${project.id}`);
+    } catch (err: unknown) {
+      const message = err instanceof Error ? err.message : "Failed to create project";
+      setError(message);
+      showToast(message, "error");
       setIsLoading(false);
     }
   };
@@ -56,6 +48,13 @@ export default function NewProjectForm() {
             </div>
             <h2 className="text-base font-semibold text-text-primary">Project Details</h2>
           </div>
+
+          {error && (
+            <div className="mb-4 px-3 py-2.5 rounded-lg bg-danger-muted/20 border border-danger/20 text-danger text-sm">
+              {error}
+            </div>
+          )}
+
           <div className="space-y-4">
             <div>
               <label htmlFor="project-name" className="block text-sm font-medium text-text-secondary mb-1.5">
@@ -65,57 +64,30 @@ export default function NewProjectForm() {
                 id="project-name"
                 type="text"
                 value={name}
-                onChange={(e) => handleNameChange(e.target.value)}
+                onChange={(e) => setName(e.target.value)}
                 placeholder="My Awesome App"
                 required
+                maxLength={100}
                 className="w-full px-3 py-2.5 rounded-lg bg-bg-input border border-border text-text-primary placeholder:text-text-muted text-sm focus:outline-none focus:ring-2 focus:ring-accent/50 focus:border-accent transition-all duration-150"
               />
             </div>
             <div>
-              <label htmlFor="db-name" className="block text-sm font-medium text-text-secondary mb-1.5">
-                Database Name
+              <label htmlFor="project-description" className="block text-sm font-medium text-text-secondary mb-1.5">
+                Description <span className="text-text-muted">(optional)</span>
               </label>
-              <input
-                id="db-name"
-                type="text"
-                value={dbName}
-                onChange={(e) => setDbName(e.target.value)}
-                placeholder="my_awesome_app_db"
-                required
-                className="w-full px-3 py-2.5 rounded-lg bg-bg-input border border-border text-text-primary placeholder:text-text-muted text-sm font-mono focus:outline-none focus:ring-2 focus:ring-accent/50 focus:border-accent transition-all duration-150"
+              <textarea
+                id="project-description"
+                value={description}
+                onChange={(e) => setDescription(e.target.value)}
+                placeholder="A brief description of what this project is for..."
+                maxLength={500}
+                rows={3}
+                className="w-full px-3 py-2.5 rounded-lg bg-bg-input border border-border text-text-primary placeholder:text-text-muted text-sm focus:outline-none focus:ring-2 focus:ring-accent/50 focus:border-accent transition-all duration-150 resize-none"
               />
-              <p className="mt-1.5 text-xs text-text-muted">Only lowercase letters, numbers, and underscores</p>
+              <p className="mt-1.5 text-xs text-text-muted">
+                A dedicated MySQL database will be created automatically for this project.
+              </p>
             </div>
-          </div>
-        </div>
-
-        <div className="p-6 rounded-xl border border-border bg-bg-secondary">
-          <div className="flex items-center gap-3 mb-4">
-            <div className="w-8 h-8 rounded-lg bg-info-muted flex items-center justify-center">
-              <IconGlobe size={16} className="text-info" />
-            </div>
-            <h2 className="text-base font-semibold text-text-primary">Region</h2>
-          </div>
-          <p className="text-sm text-text-secondary mb-4">Select the region closest to your users for the best performance.</p>
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
-            {regions.map((r) => (
-              <button
-                key={r.id}
-                type="button"
-                onClick={() => setRegion(r.id)}
-                className={`flex items-center gap-3 p-3 rounded-lg border text-left text-sm transition-all duration-150 ${
-                  region === r.id
-                    ? "border-accent bg-accent-muted/30 text-text-primary"
-                    : "border-border bg-transparent text-text-secondary hover:border-border-light hover:bg-bg-tertiary"
-                }`}
-              >
-                <span className="text-base">{r.flag}</span>
-                <div>
-                  <p className={`font-medium ${region === r.id ? "text-accent" : ""}`}>{r.name}</p>
-                  <p className="text-xs text-text-muted font-mono">{r.id}</p>
-                </div>
-              </button>
-            ))}
           </div>
         </div>
 

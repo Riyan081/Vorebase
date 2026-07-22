@@ -2,28 +2,39 @@
 
 import { useState, useEffect } from "react";
 import { useParams } from "next/navigation";
-import { listPolicies, togglePolicy as apiTogglePolicy, type RlsPolicy } from "@/lib/api";
+import { listPolicies, deletePolicy, togglePolicy as apiTogglePolicy, type RlsPolicy } from "@/lib/api";
 import PolicyCard from "@/components/auth/policy-card";
+import CreatePolicyModal from "@/components/auth/create-policy-modal";
+import EditPolicyModal from "@/components/auth/edit-policy-modal";
+import { useToast } from "@/components/shared/toast";
 import { IconPlus } from "@/lib/icons";
 
 export default function PoliciesView() {
   const params = useParams();
   const projectId = params.id as string;
+  const { showToast } = useToast();
 
   const [policies, setPolicies] = useState<RlsPolicy[]>([]);
   const [loading, setLoading] = useState(true);
+  const [showCreateModal, setShowCreateModal] = useState(false);
+  const [editingPolicy, setEditingPolicy] = useState<RlsPolicy | null>(null);
 
-  useEffect(() => {
+  const fetchPolicies = () => {
     if (!projectId) return;
+    setLoading(true);
     listPolicies(projectId)
       .then(setPolicies)
       .catch(() => {})
       .finally(() => setLoading(false));
+  };
+
+  useEffect(() => {
+    fetchPolicies();
   }, [projectId]);
 
   const handleToggle = async (policyId: string) => {
     try {
-      const updated = await apiTogglePolicy(policyId);
+      const updated = await apiTogglePolicy(policyId, projectId);
       setPolicies((prev) =>
         prev.map((p) => (p.id === policyId ? updated : p))
       );
@@ -35,6 +46,17 @@ export default function PoliciesView() {
     }
   };
 
+  const handleDelete = async (policyId: string) => {
+    if (!confirm("Delete this policy? This cannot be undone.")) return;
+    try {
+      await deletePolicy(policyId, projectId);
+      setPolicies((prev) => prev.filter((p) => p.id !== policyId));
+      showToast("Policy deleted.", "success");
+    } catch (err) {
+      showToast(err instanceof Error ? err.message : "Failed to delete policy", "error");
+    }
+  };
+
   const grouped = policies.reduce((acc, policy) => {
     if (!acc[policy.tableName]) acc[policy.tableName] = [];
     acc[policy.tableName]!.push(policy);
@@ -43,8 +65,14 @@ export default function PoliciesView() {
 
   return (
     <>
-      <div className="flex items-center justify-end mb-6">
-        <button className="inline-flex items-center gap-2 px-4 py-2 rounded-lg bg-accent hover:bg-accent-hover text-bg-primary text-sm font-semibold transition-all hover:shadow-glow">
+      <div className="flex items-center justify-between mb-6">
+        <p className="text-sm text-text-secondary">
+          {loading ? "Loading..." : `${policies.length} policies`}
+        </p>
+        <button
+          onClick={() => setShowCreateModal(true)}
+          className="inline-flex items-center gap-2 px-4 py-2 rounded-lg bg-accent hover:bg-accent-hover text-bg-primary text-sm font-semibold transition-all hover:shadow-glow"
+        >
           <IconPlus size={14} />
           New Policy
         </button>
@@ -65,6 +93,7 @@ export default function PoliciesView() {
       ) : Object.keys(grouped).length === 0 ? (
         <div className="text-center py-12">
           <p className="text-sm text-text-secondary">No policies defined yet</p>
+          <p className="text-xs text-text-muted mt-1">Click "New Policy" to create your first RLS policy.</p>
         </div>
       ) : (
         <div className="space-y-6">
@@ -76,13 +105,42 @@ export default function PoliciesView() {
               </div>
               <div className="divide-y divide-border">
                 {tablePolicies.map((policy) => (
-                  <PolicyCard key={policy.id} policy={policy} onToggle={handleToggle} />
+                  <PolicyCard
+                    key={policy.id}
+                    policy={policy}
+                    onToggle={handleToggle}
+                    onEdit={(id) => setEditingPolicy(tablePolicies.find((p) => p.id === id) ?? null)}
+                    onDelete={handleDelete}
+                  />
                 ))}
               </div>
             </div>
           ))}
         </div>
       )}
+
+      <CreatePolicyModal
+        isOpen={showCreateModal}
+        onClose={() => setShowCreateModal(false)}
+        projectId={projectId}
+        onPolicyCreated={() => {
+          setShowCreateModal(false);
+          fetchPolicies();
+          showToast("Policy created successfully.", "success");
+        }}
+      />
+
+      <EditPolicyModal
+        isOpen={!!editingPolicy}
+        onClose={() => setEditingPolicy(null)}
+        policy={editingPolicy}
+        projectId={projectId}
+        onPolicyUpdated={() => {
+          setEditingPolicy(null);
+          fetchPolicies();
+          showToast("Policy updated successfully.", "success");
+        }}
+      />
     </>
   );
 }

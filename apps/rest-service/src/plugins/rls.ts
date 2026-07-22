@@ -69,9 +69,13 @@ export async function evaluateRls(
     },
   });
 
-  // If no policies exist, allow access (open by default)
-  // In a stricter mode, you could deny by default
+  // If no policies exist for this table:
+  // - In strict mode (RLS_STRICT_MODE=true): deny access by default
+  // - In permissive mode (default): allow access (open by default)
   if (policies.length === 0) {
+    if (process.env.RLS_STRICT_MODE === "true") {
+      throw new RlsViolationError();
+    }
     return { sql: "", params: [], bypassed: false };
   }
 
@@ -88,7 +92,7 @@ export async function evaluateRls(
     }
 
     // Parse the policy check expression
-    const check = policy.check as RlsPolicyCheck;
+    const check = policy.check as unknown as RlsPolicyCheck;
 
     if (!check || !check.column || !check.op) {
       continue;

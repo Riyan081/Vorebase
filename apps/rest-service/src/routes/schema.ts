@@ -21,7 +21,7 @@ export async function schemaRoutes(fastify: FastifyInstance) {
    */
   fastify.get(
     "/rest/v1/schema",
-    { preHandler: [fastify.authenticateRequest] },
+    { preHandler: [fastify.authenticateAndAttachDb] },
     async (request, reply) => {
       const pool = request.dbPool;
       const dbName = request.dbName;
@@ -46,7 +46,7 @@ export async function schemaRoutes(fastify: FastifyInstance) {
    */
   fastify.get(
     "/rest/v1/schema/tables",
-    { preHandler: [fastify.authenticateRequest] },
+    { preHandler: [fastify.authenticateAndAttachDb] },
     async (request, reply) => {
       const pool = request.dbPool;
       const dbName = request.dbName;
@@ -71,7 +71,7 @@ export async function schemaRoutes(fastify: FastifyInstance) {
    */
   fastify.get<{ Params: { table: string } }>(
     "/rest/v1/schema/tables/:table",
-    { preHandler: [fastify.authenticateRequest] },
+    { preHandler: [fastify.authenticateAndAttachDb] },
     async (request, reply) => {
       const pool = request.dbPool;
       const dbName = request.dbName;

@@ -2,16 +2,17 @@
 
 import { useState } from "react";
 import { formatDateTime } from "@/lib/utils";
-import { IconCopy, IconCheck, IconEye, IconEyeOff } from "@/lib/icons";
+import { IconCopy, IconCheck, IconEye, IconEyeOff, IconTrash } from "@/lib/icons";
 
 interface ApiKeyRowProps {
   label: string;
   keyValue: string;
   role: string;
   createdAt: string;
+  onDelete?: () => void;
 }
 
-export default function ApiKeyRow({ label, keyValue, role, createdAt }: ApiKeyRowProps) {
+export default function ApiKeyRow({ label, keyValue, role, createdAt, onDelete }: ApiKeyRowProps) {
   const [visible, setVisible] = useState(false);
   const [copied, setCopied] = useState(false);
 
@@ -54,6 +55,15 @@ export default function ApiKeyRow({ label, keyValue, role, createdAt }: ApiKeyRo
         >
           {copied ? <IconCheck size={14} className="text-accent" /> : <IconCopy size={14} />}
         </button>
+        {onDelete && (
+          <button
+            onClick={onDelete}
+            className="p-2 rounded-lg border border-border text-text-muted hover:text-danger hover:bg-danger-muted/30 transition-all"
+            title="Revoke key"
+          >
+            <IconTrash size={14} />
+          </button>
+        )}
       </div>
       {role === "service_role" && (
         <p className="mt-2 text-[11px] text-danger">

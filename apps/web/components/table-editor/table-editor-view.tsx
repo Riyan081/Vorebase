@@ -29,9 +29,10 @@ export default function TableEditorView() {
   const [refreshKey, setRefreshKey] = useState(0);
   const [loading, setLoading] = useState(true);
 
-  // Fetch schema
+  // Fetch schema — re-runs on refresh so ALTER TABLE changes show up
   useEffect(() => {
     if (!projectId) return;
+    setLoading(true);
     getSchema(projectId)
       .then((schema) => {
         setTables(schema);
@@ -41,49 +42,31 @@ export default function TableEditorView() {
       })
       .catch(() => {})
       .finally(() => setLoading(false));
-  }, [projectId]);
+  }, [projectId, refreshKey]);
 
-  // Fetch rows when table changes
+  // Fetch rows when table, filter, or sort changes — server-side filtering
   useEffect(() => {
     if (!projectId || !selectedTable) return;
-    getTableRows(projectId, selectedTable)
+
+    // Build query params for server-side filtering (Supabase-compatible format)
+    const queryParams: Record<string, string> = {};
+
+    if (activeFilter) {
+      queryParams[activeFilter.column] = `${activeFilter.operator}.${activeFilter.value}`;
+    }
+
+    if (activeSort) {
+      queryParams.order = `${activeSort.column}.${activeSort.direction}`;
+    }
+
+    getTableRows(projectId, selectedTable, Object.keys(queryParams).length > 0 ? queryParams : undefined)
       .then((res) => setRows(res.data))
       .catch(() => setRows([]));
-  }, [projectId, selectedTable, refreshKey]);
+  }, [projectId, selectedTable, refreshKey, activeFilter, activeSort]);
 
   const currentTable = tables.find((t) => t.name === selectedTable);
 
-  // Apply filter (client-side for now)
-  const filteredRows = activeFilter
-    ? rows.filter((row) => {
-        const val = String(row[activeFilter.column] ?? "").toLowerCase();
-        const filterVal = activeFilter.value.toLowerCase();
-        switch (activeFilter.operator) {
-          case "eq": return val === filterVal;
-          case "neq": return val !== filterVal;
-          case "gt": return parseFloat(val) > parseFloat(filterVal);
-          case "lt": return parseFloat(val) < parseFloat(filterVal);
-          case "gte": return parseFloat(val) >= parseFloat(filterVal);
-          case "lte": return parseFloat(val) <= parseFloat(filterVal);
-          case "like": return val.includes(filterVal);
-          case "ilike": return val.includes(filterVal);
-          case "is": return val === filterVal;
-          default: return true;
-        }
-      })
-    : rows;
-
-  // Apply sort (client-side)
-  const sortedRows = activeSort
-    ? [...filteredRows].sort((a, b) => {
-        const aVal = String(a[activeSort.column] ?? "");
-        const bVal = String(b[activeSort.column] ?? "");
-        const cmp = aVal.localeCompare(bVal, undefined, { numeric: true });
-        return activeSort.direction === "asc" ? cmp : -cmp;
-      })
-    : filteredRows;
-
-  const displayRows = sortedRows;
+  const displayRows = rows;
 
   if (loading) {
     return (
@@ -156,7 +139,7 @@ export default function TableEditorView() {
               </div>
             </div>
 
-            <TableGrid key={refreshKey} table={currentTable} rows={displayRows} search={search} />
+            <TableGrid key={refreshKey} table={currentTable} rows={displayRows} search={search} projectId={projectId} onDataChanged={() => setRefreshKey((k) => k + 1)} />
           </>
         ) : (
           <div className="flex-1 flex items-center justify-center">
@@ -165,8 +148,30 @@ export default function TableEditorView() {
         )}
       </div>
 
-      <CreateTableModal isOpen={showCreateModal} onClose={() => setShowCreateModal(false)} />
-      <InsertRowPanel isOpen={showInsertModal} onClose={() => setShowInsertModal(false)} table={currentTable || null} />
+      <CreateTableModal
+        isOpen={showCreateModal}
+        onClose={() => setShowCreateModal(false)}
+        projectId={projectId}
+        onTableCreated={() => {
+          // Refresh the schema to show the new table
+          getSchema(projectId)
+            .then((schema) => {
+              setTables(schema);
+              // Select the newly created table (last one)
+              if (schema.length > 0) {
+                setSelectedTable(schema[schema.length - 1]!.name);
+              }
+            })
+            .catch(() => {});
+        }}
+      />
+      <InsertRowPanel
+        isOpen={showInsertModal}
+        onClose={() => setShowInsertModal(false)}
+        table={currentTable || null}
+        projectId={projectId}
+        onRowInserted={() => setRefreshKey((k) => k + 1)}
+      />
     </div>
   );
 }

@@ -56,11 +56,12 @@ export async function getTableColumns(
 
   return rows.map((row: any) => ({
     name: row.name,
-    type: row.type,
-    isPrimary: row.columnKey === "PRI",
-    isNullable: row.isNullable === "YES",
-    defaultValue: row.defaultValue,
-    extra: row.extra || "",
+    type: row.type.toUpperCase(),
+    isPrimaryKey: row.columnKey === "PRI",
+    isUnique: row.columnKey === "UNI" || row.columnKey === "PRI",
+    nullable: row.isNullable === "YES",
+    defaultValue: row.defaultValue ?? null,
+    autoIncrement: (row.extra || "").toLowerCase().includes("auto_increment"),
   }));
 }
 

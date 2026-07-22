@@ -1,14 +1,15 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import Link from "next/link";
-import { usePathname } from "next/navigation";
+import { usePathname, useRouter } from "next/navigation";
 import {
   VorebaseLogo, IconHome, IconTable, IconCode, IconUsers, IconShield,
   IconFolder, IconFileText, IconSettings, IconKey, IconLogs, IconDatabase,
   IconChevronLeft, IconChevronRight, IconLogOut,
 } from "@/lib/icons";
 import ProjectSelector from "@/components/layouts/project-selector";
+import { getAdminUser, clearToken, getRefreshToken } from "@/lib/auth";
 
 interface SidebarProps {
   projectId: string;
@@ -25,6 +26,31 @@ interface NavItem {
 
 export default function Sidebar({ projectId, collapsed, onToggleCollapse }: SidebarProps) {
   const pathname = usePathname();
+  const router = useRouter();
+  const [adminEmail, setAdminEmail] = useState<string>("Admin");
+  const [signingOut, setSigningOut] = useState(false);
+
+  useEffect(() => {
+    const user = getAdminUser();
+    if (user?.email) setAdminEmail(user.email);
+  }, []);
+
+  const handleSignOut = async () => {
+    setSigningOut(true);
+    try {
+      const refreshToken = getRefreshToken();
+      if (refreshToken) {
+        await fetch("/auth/v1/admin/signout", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ refresh_token: refreshToken }),
+        }).catch(() => {}); // best-effort — always clear local tokens
+      }
+    } finally {
+      clearToken();
+      router.push("/login");
+    }
+  };
 
   const navItems: NavItem[] = [
     { label: "Home", href: `/project/${projectId}`, icon: <IconHome size={18} /> },
@@ -47,6 +73,7 @@ export default function Sidebar({ projectId, collapsed, onToggleCollapse }: Side
     return pathname.startsWith(href);
   };
 
+  const initials = adminEmail.charAt(0).toUpperCase();
   let currentSection = "";
 
   return (
@@ -91,7 +118,7 @@ export default function Sidebar({ projectId, collapsed, onToggleCollapse }: Side
           const showSection = !collapsed && item.section && item.section !== currentSection;
           if (item.section) currentSection = item.section;
 
-          return (   
+          return (
             <div key={item.href}>
               {showSection && (
                 <p className="px-3 pt-4 pb-1.5 text-[10px] font-semibold uppercase tracking-wider text-text-muted">
@@ -128,17 +155,18 @@ export default function Sidebar({ projectId, collapsed, onToggleCollapse }: Side
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-2 min-w-0">
               <div className="w-7 h-7 rounded-full bg-accent/20 flex items-center justify-center text-xs font-semibold text-accent flex-shrink-0">
-                A
+                {initials}
               </div>
-              <p className="text-xs text-text-secondary truncate">admin@vorebase.io</p>
+              <p className="text-xs text-text-secondary truncate">{adminEmail}</p>
             </div>
-            <Link
-              href="/login"
-              className="p-1.5 rounded-md text-text-muted hover:text-danger hover:bg-danger-muted transition-all duration-150"
+            <button
+              onClick={handleSignOut}
+              disabled={signingOut}
+              className="p-1.5 rounded-md text-text-muted hover:text-danger hover:bg-danger-muted transition-all duration-150 disabled:opacity-50"
               title="Sign out"
             >
               <IconLogOut size={14} />
-            </Link>
+            </button>
           </div>
         )}
       </div>

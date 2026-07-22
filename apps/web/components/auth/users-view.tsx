@@ -5,31 +5,39 @@ import { useParams } from "next/navigation";
 import { listAuthUsers, deleteAuthUser, type AuthUser } from "@/lib/api";
 import UserTable from "@/components/auth/user-table";
 import CreateUserModal from "@/components/auth/create-user-modal";
+import { useToast } from "@/components/shared/toast";
 import { IconPlus, IconSearch } from "@/lib/icons";
+
+const PAGE_SIZE = 20;
 
 export default function UsersView() {
   const params = useParams();
   const projectId = params.id as string;
+  const { showToast } = useToast();
 
   const [users, setUsers] = useState<AuthUser[]>([]);
   const [totalCount, setTotalCount] = useState(0);
+  const [totalPages, setTotalPages] = useState(1);
+  const [currentPage, setCurrentPage] = useState(1);
   const [search, setSearch] = useState("");
   const [showAddModal, setShowAddModal] = useState(false);
   const [loading, setLoading] = useState(true);
 
-  const fetchUsers = () => {
+  const fetchUsers = (page = currentPage) => {
     setLoading(true);
-    listAuthUsers(projectId)
+    listAuthUsers(projectId, page, PAGE_SIZE)
       .then((res) => {
         setUsers(res.data);
         setTotalCount(res.count);
+        setTotalPages(res.total_pages);
+        setCurrentPage(res.page);
       })
       .catch(() => {})
       .finally(() => setLoading(false));
   };
 
   useEffect(() => {
-    if (projectId) fetchUsers();
+    if (projectId) fetchUsers(1);
   }, [projectId]);
 
   const filteredUsers = users.filter(
@@ -69,8 +77,47 @@ export default function UsersView() {
           <span className="w-5 h-5 border-2 border-accent/30 border-t-accent rounded-full animate-spin" />
         </div>
       ) : (
-        <UserTable users={filteredUsers} />
+        <UserTable
+          users={filteredUsers}
+          onDeleteUser={async (id) => {
+            if (!confirm("Are you sure you want to delete this user? This action cannot be undone.")) return;
+            try {
+              await deleteAuthUser(id);
+              showToast("User deleted successfully", "success");
+              fetchUsers();
+            } catch (err) {
+              const message = err instanceof Error ? err.message : "Failed to delete user";
+              showToast(message, "error");
+            }
+          }}
+        />
       )}
+
+      {/* Pagination Controls */}
+      {totalPages > 1 && (
+        <div className="flex items-center justify-between mt-4 pt-4 border-t border-border">
+          <p className="text-xs text-text-muted">
+            Page {currentPage} of {totalPages} · Showing {users.length} of {totalCount}
+          </p>
+          <div className="flex items-center gap-2">
+            <button
+              onClick={() => fetchUsers(currentPage - 1)}
+              disabled={currentPage <= 1}
+              className="px-3 py-1.5 rounded-lg border border-border text-text-secondary text-xs font-medium hover:bg-bg-secondary disabled:opacity-40 disabled:cursor-not-allowed transition-all"
+            >
+              ← Previous
+            </button>
+            <button
+              onClick={() => fetchUsers(currentPage + 1)}
+              disabled={currentPage >= totalPages}
+              className="px-3 py-1.5 rounded-lg border border-border text-text-secondary text-xs font-medium hover:bg-bg-secondary disabled:opacity-40 disabled:cursor-not-allowed transition-all"
+            >
+              Next →
+            </button>
+          </div>
+        </div>
+      )}
+
       <CreateUserModal
         isOpen={showAddModal}
         onClose={() => {

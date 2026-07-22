@@ -220,7 +220,22 @@ export async function adminUsersRoute(fastify: FastifyInstance) {
     };
   }>(
     "/auth/v1/admin/users/:id",
-    { preHandler: [fastify.requireAdmin] },
+    {
+      preHandler: [fastify.requireAdmin],
+      schema: {
+        body: {
+          type: "object" as const,
+          properties: {
+            email: { type: "string" as const, format: "email", maxLength: 255 },
+            password: { type: "string" as const, minLength: 8, maxLength: 128 },
+            role: { type: "string" as const, enum: ["authenticated", "anon", "service_role"] },
+            metadata: { type: "object" as const },
+            appMetadata: { type: "object" as const },
+          },
+          additionalProperties: false,
+        },
+      },
+    },
     async (request, reply) => {
       const admin = request.user as AdminJwtPayload;
       const { id } = request.params;

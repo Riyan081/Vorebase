@@ -28,7 +28,7 @@ export async function sqlRoutes(fastify: FastifyInstance) {
     Body: { query: string };
   }>(
     "/rest/v1/sql",
-    { preHandler: [fastify.authenticateRequest] },
+    { preHandler: [fastify.authenticateAndAttachDb] },
     async (request, reply) => {
       const pool = request.dbPool;
       const dbName = request.dbName;
@@ -51,44 +51,57 @@ export async function sqlRoutes(fastify: FastifyInstance) {
         throw new ValidationError("SQL query is required");
       }
 
-      // Determine query type for appropriate response
-      const trimmed = query.trim().toUpperCase();
-      const isSelect =
-        trimmed.startsWith("SELECT") ||
-        trimmed.startsWith("SHOW") ||
-        trimmed.startsWith("DESCRIBE") ||
-        trimmed.startsWith("DESC") ||
-        trimmed.startsWith("EXPLAIN");
+      // Split into individual statements (handle multi-statement input like Supabase SQL editor)
+      const statements = query
+        .split(";")
+        .map((s) => s.trim())
+        .filter((s) => s.length > 0);
+
+      if (statements.length === 0) {
+        throw new ValidationError("SQL query is required");
+      }
 
       try {
-        const [result] = await pool.execute(query);
+        const dmlResults: Record<string, unknown>[] = [];
+        const selectResults: Record<string, unknown>[] = [];
 
-        if (isSelect) {
-          // SELECT-type queries return rows
-          const rows = result as Record<string, unknown>[];
-          reply.send({
-            data: rows,
-            count: rows.length,
-            status: 200,
-          });
-        } else {
-          // DML/DDL queries return affected rows info
-          const mutationResult = result as any;
-          reply.send({
-            data: [
-              {
-                affected_rows: mutationResult.affectedRows ?? 0,
-                insert_id: mutationResult.insertId ?? null,
-                changed_rows: mutationResult.changedRows ?? 0,
-                message: mutationResult.info || "Query executed successfully",
-              },
-            ],
-            count: 1,
-            status: 200,
-          });
+        for (const stmt of statements) {
+          const trimmed = stmt.trim().toUpperCase();
+          const isSelect =
+            trimmed.startsWith("SELECT") ||
+            trimmed.startsWith("SHOW") ||
+            trimmed.startsWith("DESCRIBE") ||
+            trimmed.startsWith("DESC") ||
+            trimmed.startsWith("EXPLAIN");
+
+          const [result] = await pool.execute(stmt);
+
+          if (isSelect) {
+            // SELECT rows — always show these if present
+            const rows = result as Record<string, unknown>[];
+            selectResults.push(...rows);
+          } else {
+            const mutationResult = result as any;
+            dmlResults.push({
+              affected_rows: mutationResult.affectedRows ?? 0,
+              insert_id: mutationResult.insertId ?? null,
+              changed_rows: mutationResult.changedRows ?? 0,
+              message: mutationResult.info || "Query executed successfully",
+            });
+          }
         }
+
+        // If any SELECT ran, show SELECT results (ignore DML metadata rows)
+        // This matches Supabase behavior: INSERT + SELECT shows the SELECT results
+        const finalResults = selectResults.length > 0 ? selectResults : dmlResults;
+
+        reply.send({
+          data: finalResults,
+          count: finalResults.length,
+          status: 200,
+        });
+
       } catch (err: any) {
-        // Return MySQL error details for the SQL editor to display
         reply.status(400).send({
           error: {
             message: err.message || "SQL execution failed",

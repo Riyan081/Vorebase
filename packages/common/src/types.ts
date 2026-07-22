@@ -185,10 +185,11 @@ export interface SubscriptionMessage {
 export interface ColumnInfo {
   name: string;
   type: string;
-  isPrimary: boolean;
-  isNullable: boolean;
+  isPrimaryKey: boolean;
+  isUnique: boolean;
+  nullable: boolean;
   defaultValue: string | null;
-  extra: string;
+  autoIncrement: boolean;
 }
 
 export interface TableInfo {

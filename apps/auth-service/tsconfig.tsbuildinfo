@@ -1,0 +1,1 @@
+{"root":["./src/index.ts","./src/plugins/auth-guard.ts","./src/plugins/jwt.ts","./src/routes/refresh.ts","./src/routes/signin.ts","./src/routes/signout.ts","./src/routes/signup.ts","./src/routes/user.ts","./src/routes/admin/auth.ts","./src/routes/admin/keys.ts","./src/routes/admin/projects.ts","./src/routes/admin/users.ts","./src/schemas/auth.schema.ts"],"version":"5.9.2"}

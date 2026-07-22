@@ -37,6 +37,7 @@ export interface TableColumn {
   defaultValue: string | null;
   isPrimaryKey: boolean;
   isUnique: boolean;
+  autoIncrement: boolean;
 }
 
 export interface TableInfo {
@@ -145,8 +146,8 @@ async function apiFetch<T>(
     ...(options.headers as Record<string, string> || {}),
   };
 
-  // Don't set Content-Type for FormData (browser sets it with boundary)
-  if (!(options.body instanceof FormData)) {
+  // Only set Content-Type if we actually have a body to send (Fastify rejects empty bodies with application/json)
+  if (options.body && !(options.body instanceof FormData)) {
     headers["Content-Type"] = "application/json";
   }
 
@@ -160,7 +161,7 @@ async function apiFetch<T>(
   if (!res.ok) {
     const body = await res.json().catch(() => ({}));
     throw new Error(
-      body.message || body.error || `API Error: ${res.status} ${res.statusText}`
+      body.error?.message || body.message || (typeof body.error === 'string' ? body.error : null) || `API Error: ${res.status} ${res.statusText}`
     );
   }
 
@@ -178,29 +179,34 @@ export async function adminLogin(email: string, password: string) {
 
   if (!res.ok) {
     const body = await res.json().catch(() => ({}));
-    throw new Error(body.message || body.error || "Invalid email or password");
+    throw new Error(body.error?.message || body.message || "Invalid email or password");
   }
 
   return res.json() as Promise<
     ApiResponse<{
       user: { id: string; email: string; role: string };
       access_token: string;
+      refresh_token?: string;
       token_type: string;
     }>
   >;
 }
 
-export async function adminRegister(email: string, password: string) {
+export async function adminRegister(email: string, password: string, existingToken?: string) {
+  const headers: Record<string, string> = { "Content-Type": "application/json" };
+  if (existingToken) {
+    headers["Authorization"] = `Bearer ${existingToken}`;
+  }
   const res = await fetch("/auth/v1/admin/signup", {
     method: "POST",
-    headers: { "Content-Type": "application/json" },
+    headers,
     body: JSON.stringify({ email, password }),
   });
 
   if (!res.ok) {
     const body = await res.json().catch(() => ({}));
     throw new Error(
-      body.message || body.error || "Unable to create account"
+      body.error?.message || body.message || "Unable to create account"
     );
   }
 
@@ -208,6 +214,7 @@ export async function adminRegister(email: string, password: string) {
     ApiResponse<{
       user: { id: string; email: string; role: string; created_at: string };
       access_token: string;
+      refresh_token?: string;
       token_type: string;
     }>
   >;
@@ -494,7 +501,8 @@ export async function updateAuthUser(
 
 export async function listPolicies(projectId: string): Promise<RlsPolicy[]> {
   const res = await apiFetch<RlsPolicy[]>(
-    `/rest/v1/rls/policies?projectId=${projectId}`
+    `/rest/v1/rls/policies?projectId=${projectId}`,
+    { headers: { "x-project-id": projectId } }
   );
   return res.data;
 }
@@ -509,6 +517,7 @@ export async function createPolicy(policy: {
 }): Promise<RlsPolicy> {
   const res = await apiFetch<RlsPolicy>("/rest/v1/rls/policies", {
     method: "POST",
+    headers: { "x-project-id": policy.projectId },
     body: JSON.stringify(policy),
   });
   return res.data;
@@ -516,6 +525,7 @@ export async function createPolicy(policy: {
 
 export async function updatePolicy(
   id: string,
+  projectId: string,
   data: Partial<{
     name: string;
     tableName: string;
@@ -526,19 +536,23 @@ export async function updatePolicy(
 ): Promise<RlsPolicy> {
   const res = await apiFetch<RlsPolicy>(`/rest/v1/rls/policies/${id}`, {
     method: "PUT",
+    headers: { "x-project-id": projectId },
     body: JSON.stringify(data),
   });
   return res.data;
 }
 
-export async function deletePolicy(id: string): Promise<void> {
-  await apiFetch(`/rest/v1/rls/policies/${id}`, { method: "DELETE" });
+export async function deletePolicy(id: string, projectId: string): Promise<void> {
+  await apiFetch(`/rest/v1/rls/policies/${id}`, {
+    method: "DELETE",
+    headers: { "x-project-id": projectId },
+  });
 }
 
-export async function togglePolicy(id: string): Promise<RlsPolicy> {
+export async function togglePolicy(id: string, projectId: string): Promise<RlsPolicy> {
   const res = await apiFetch<RlsPolicy>(
     `/rest/v1/rls/policies/${id}/toggle`,
-    { method: "PATCH" }
+    { method: "PATCH", headers: { "x-project-id": projectId } }
   );
   return res.data;
 }

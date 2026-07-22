@@ -33,11 +33,14 @@ export async function signinRoute(fastify: FastifyInstance) {
     async (request, reply) => {
       const { email, password, projectId } = request.body;
 
-      // Find user by email (and optionally project)
+      // Resolve projectId from body or x-project-id header (set by SDK)
+      const resolvedProjectId = projectId || (request.headers["x-project-id"] as string | undefined);
+
+      // Find user by email scoped to project
       const user = await prismaClient.user.findFirst({
         where: {
           email: email.toLowerCase().trim(),
-          ...(projectId ? { projectId } : {}),
+          ...(resolvedProjectId ? { projectId: resolvedProjectId } : {}),
         },
       });
 

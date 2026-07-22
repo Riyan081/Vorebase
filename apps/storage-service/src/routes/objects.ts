@@ -66,9 +66,14 @@ export async function objectRoutes(fastify: FastifyInstance) {
         throw new ValidationError("No file uploaded");
       }
 
-      // Check file size limit
+      // Pre-check file size from Content-Length header (early rejection saves bandwidth)
       if (bucket.fileSizeLimit) {
-        // We'll check after upload since we're streaming
+        const contentLength = parseInt(request.headers["content-length"] || "0", 10);
+        if (contentLength > 0 && contentLength > bucket.fileSizeLimit) {
+          throw new ValidationError(
+            `File size (${contentLength} bytes) exceeds limit (${bucket.fileSizeLimit} bytes)`
+          );
+        }
       }
 
       // Check MIME type restrictions
@@ -98,9 +103,8 @@ export async function objectRoutes(fastify: FastifyInstance) {
           mBucketName,
           filePath,
           data.file,
-          {
-            "Content-Type": data.mimetype,
-          }
+          undefined,
+          { "Content-Type": data.mimetype }
         );
         // Get the size from what was actually uploaded
         const stat = await fastify.minio.statObject(mBucketName, filePath);
@@ -120,7 +124,7 @@ export async function objectRoutes(fastify: FastifyInstance) {
       }
 
       // Save metadata to MySQL (upsert — overwrite if same path)
-      const userId = (request.user as JwtPayload)?.sub || null;
+      const userId = (request.user as JwtPayload)?.sub ?? undefined;
 
       await prismaClient.storageObject.upsert({
         where: {

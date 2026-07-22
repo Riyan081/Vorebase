@@ -1,3 +1,4 @@
+import 'dotenv/config';
 /**
  * Vorebase Storage Service — Server Bootstrap
  *
@@ -79,7 +80,7 @@ async function buildApp() {
   });
 
   // ── Global Error Handler ──────────────────────────────
-  app.setErrorHandler((error, request, reply) => {
+  app.setErrorHandler((error: import("fastify").FastifyError, request, reply) => {
     if (error instanceof AppError) {
       return reply.status(error.statusCode).send(error.toJSON());
     }

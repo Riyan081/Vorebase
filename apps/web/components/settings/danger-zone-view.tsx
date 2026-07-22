@@ -5,17 +5,26 @@ import { useRouter } from "next/navigation";
 import { SettingsNav } from "@/components/layouts/settings-nav";
 import ConfirmModal from "@/components/shared/confirm-modal";
 import { useToast } from "@/components/shared/toast";
+import { deleteProject } from "@/lib/api";
 
 export default function DangerZoneView({ projectId }: { projectId: string }) {
   const router = useRouter();
   const { showToast } = useToast();
   const [showDeleteModal, setShowDeleteModal] = useState(false);
   const [showPauseModal, setShowPauseModal] = useState(false);
+  const [isDeleting, setIsDeleting] = useState(false);
 
-  const handleDelete = () => {
-    setShowDeleteModal(false);
-    showToast("Project deleted successfully.", "success");
-    router.push("/projects");
+  const handleDelete = async () => {
+    setIsDeleting(true);
+    try {
+      await deleteProject(projectId);
+      setShowDeleteModal(false);
+      showToast("Project deleted successfully.", "success");
+      router.push("/projects");
+    } catch (err: unknown) {
+      setIsDeleting(false);
+      showToast(err instanceof Error ? err.message : "Failed to delete project", "error");
+    }
   };
 
   const handlePause = () => {
@@ -70,11 +79,11 @@ export default function DangerZoneView({ projectId }: { projectId: string }) {
 
       <ConfirmModal
         isOpen={showDeleteModal}
-        onClose={() => setShowDeleteModal(false)}
+        onClose={() => { if (!isDeleting) setShowDeleteModal(false); }}
         onConfirm={handleDelete}
         title="Delete Project"
         description="This will permanently delete the project, database, all tables, users, and storage. This action cannot be undone."
-        confirmText="Delete Project"
+        confirmText={isDeleting ? "Deleting..." : "Delete Project"}
       />
       <ConfirmModal
         isOpen={showPauseModal}

@@ -6,6 +6,7 @@
  */
 
 import type { FastifyInstance, FastifyRequest, FastifyReply } from "fastify";
+import fp from "fastify-plugin";
 import {
   extractBearerToken,
   verifyToken,
@@ -33,7 +34,7 @@ declare module "fastify" {
   }
 }
 
-export async function jwtPlugin(fastify: FastifyInstance) {
+async function jwtPluginFn(fastify: FastifyInstance) {
   const secret = process.env.JWT_SECRET;
   if (!secret || secret.length < 32) {
     throw new Error("JWT_SECRET must be set and at least 32 characters long");
@@ -48,28 +49,26 @@ export async function jwtPlugin(fastify: FastifyInstance) {
       const bearerToken = extractBearerToken(request.headers.authorization);
 
       if (bearerToken) {
-        try {
-          const payload = verifyToken<JwtPayload>(bearerToken, secret);
+        // Verify and decode — throws if invalid/expired
+        const decoded = verifyToken<JwtPayload | AdminJwtPayload>(bearerToken, secret);
+
+        // Admin tokens have role "admin"/"super_admin" and NO project_id field
+        const isAdminToken = (decoded.role === "admin" || decoded.role === "super_admin") && !("project_id" in decoded);
+
+        if (isAdminToken) {
+          request.user = decoded;
+          request.userRole = ROLES.SERVICE_ROLE;
+          const headerProjectId = request.headers["x-project-id"] as string | undefined;
+          const queryProjectId = (request.query as any)?.projectId;
+          if (headerProjectId) request.projectId = headerProjectId;
+          else if (queryProjectId) request.projectId = queryProjectId;
+          return;
+        } else {
+          const payload = decoded as JwtPayload;
           request.user = payload;
           request.projectId = payload.project_id;
           request.userRole = payload.role;
           return;
-        } catch {
-          try {
-            const payload = verifyToken<AdminJwtPayload>(bearerToken, secret);
-            request.user = payload;
-            request.userRole = ROLES.SERVICE_ROLE;
-            const headerProjectId = request.headers["x-project-id"] as string | undefined;
-            const queryProjectId = (request.query as any)?.projectId;
-            if (headerProjectId) {
-              request.projectId = headerProjectId;
-            } else if (queryProjectId) {
-              request.projectId = queryProjectId;
-            }
-            return;
-          } catch {
-            throw new AuthError("Invalid or expired token");
-          }
         }
       }
 
@@ -101,3 +100,7 @@ export async function jwtPlugin(fastify: FastifyInstance) {
     }
   );
 }
+
+export const jwtPlugin = fp(jwtPluginFn, {
+  name: "jwt-plugin",
+});

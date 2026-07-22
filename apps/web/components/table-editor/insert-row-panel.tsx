@@ -3,20 +3,35 @@
 import { useState } from "react";
 import { IconX } from "@/lib/icons";
 import type { TableInfo } from "@/lib/api";
+import { insertRow } from "@/lib/api";
 
 interface InsertRowPanelProps {
   isOpen: boolean;
   onClose: () => void;
   table: TableInfo | null;
+  projectId: string;
+  onRowInserted?: () => void;
 }
 
-export default function InsertRowPanel({ isOpen, onClose, table }: InsertRowPanelProps) {
-  const editableColumns = table?.columns.filter(
-    (c) => !c.isPrimaryKey && c.defaultValue !== "now()" && c.defaultValue !== "auto_increment"
-  ) ?? [];
+export default function InsertRowPanel({ isOpen, onClose, table, projectId, onRowInserted }: InsertRowPanelProps) {
+  // SQL expression defaults are auto-handled by MySQL — no user input needed
+  const SQL_EXPR_DEFAULTS = ["CURRENT_TIMESTAMP", "NOW()", "CURRENT_DATE", "CURRENT_TIME", "UUID()"];
+
+  // Only hide columns that are truly auto-generated
+  const editableColumns = table?.columns.filter((c) => {
+    if (c.isPrimaryKey || c.autoIncrement) return false;
+    // Hide only SQL expression defaults (e.g. CURRENT_TIMESTAMP) — MySQL fills these in
+    if (c.defaultValue) {
+      const upper = c.defaultValue.toUpperCase().trim();
+      if (SQL_EXPR_DEFAULTS.includes(upper)) return false;
+    }
+    return true;
+  }) ?? [];
 
   // Keep one state map for all field values
   const [values, setValues] = useState<Record<string, string>>({});
+  const [isLoading, setIsLoading] = useState(false);
+  const [error, setError] = useState("");
 
   if (!isOpen || !table) return null;
 
@@ -24,19 +39,38 @@ export default function InsertRowPanel({ isOpen, onClose, table }: InsertRowPane
     setValues((prev) => ({ ...prev, [colName]: val }));
   };
 
-  const handleSubmit = () => {
-    // Build the row object (future: send to API)
+  const handleSubmit = async () => {
     const newRow: Record<string, string | null> = {};
     for (const col of editableColumns) {
-      newRow[col.name] = values[col.name] ?? (col.nullable ? null : "");
+      const val = values[col.name];
+      if (val === undefined || val === "") {
+        // Has a DB default → omit entirely, MySQL uses it automatically
+        if (col.defaultValue) continue;
+        // Nullable with no default → send null
+        if (col.nullable) newRow[col.name] = null;
+        // NOT NULL with no default → omit, MySQL will return a clear error
+      } else {
+        newRow[col.name] = val;
+      }
     }
-    console.log("Insert row:", newRow);
-    setValues({});
-    onClose();
+
+    setError("");
+    setIsLoading(true);
+    try {
+      await insertRow(projectId, table.name, newRow);
+      setValues({});
+      onRowInserted?.();
+      onClose();
+    } catch (err: unknown) {
+      setError(err instanceof Error ? err.message : "Failed to insert row");
+    } finally {
+      setIsLoading(false);
+    }
   };
 
   const handleClose = () => {
     setValues({});
+    setError("");
     onClose();
   };
 
@@ -50,6 +84,11 @@ export default function InsertRowPanel({ isOpen, onClose, table }: InsertRowPane
           </button>
         </div>
         <div className="flex-1 overflow-y-auto px-5 py-4 space-y-3">
+          {error && (
+            <div className="px-3 py-2.5 rounded-lg bg-danger-muted/20 border border-danger/20 text-danger text-sm">
+              {error}
+            </div>
+          )}
           {editableColumns.length === 0 ? (
             <p className="text-sm text-text-muted text-center py-4">No editable columns (all are auto-generated)</p>
           ) : (
@@ -65,22 +104,30 @@ export default function InsertRowPanel({ isOpen, onClose, table }: InsertRowPane
                   value={values[col.name] ?? ""}
                   onChange={(e) => handleChange(col.name, e.target.value)}
                   placeholder={col.nullable ? "NULL" : `Enter ${col.type}...`}
-                  className="w-full px-3 py-2 rounded-lg bg-bg-input border border-border text-text-primary placeholder:text-text-muted text-sm font-mono focus:outline-none focus:ring-2 focus:ring-accent/50 focus:border-accent transition-all"
+                  disabled={isLoading}
+                  className="w-full px-3 py-2 rounded-lg bg-bg-input border border-border text-text-primary placeholder:text-text-muted text-sm font-mono focus:outline-none focus:ring-2 focus:ring-accent/50 focus:border-accent transition-all disabled:opacity-50"
                 />
               </div>
             ))
           )}
         </div>
         <div className="flex items-center justify-end gap-2 px-5 py-4 border-t border-border">
-          <button onClick={handleClose} className="px-4 py-2 rounded-lg border border-border text-sm text-text-secondary hover:bg-bg-tertiary transition-all">
+          <button onClick={handleClose} disabled={isLoading} className="px-4 py-2 rounded-lg border border-border text-sm text-text-secondary hover:bg-bg-tertiary transition-all disabled:opacity-50">
             Cancel
           </button>
           <button
             onClick={handleSubmit}
-            disabled={editableColumns.length === 0}
+            disabled={isLoading}
             className="px-4 py-2 rounded-lg bg-accent hover:bg-accent-hover disabled:opacity-50 text-bg-primary text-sm font-semibold transition-all"
           >
-            Insert Row
+            {isLoading ? (
+              <span className="flex items-center gap-2">
+                <span className="w-3.5 h-3.5 border-2 border-bg-primary/30 border-t-bg-primary rounded-full animate-spin" />
+                Inserting...
+              </span>
+            ) : (
+              "Insert Row"
+            )}
           </button>
         </div>
       </div>

@@ -10,6 +10,7 @@
  */
 
 import type { FastifyInstance, FastifyRequest, FastifyReply } from "fastify";
+import fp from "fastify-plugin";
 import mysql from "mysql2/promise";
 import type { Pool } from "mysql2/promise";
 import { prismaClient } from "@repo/db/client";
@@ -50,8 +51,36 @@ function getPool(databaseName: string): Pool {
   return pool;
 }
 
+/**
+ * Helper to get a pool by project ID.
+ */
+async function getProjectPool(projectId: string): Promise<{ pool: Pool; dbName: string }> {
+  const project = await prismaClient.project.findUnique({
+    where: { id: projectId },
+    select: { dbName: true },
+  });
+
+  if (!project) {
+    throw new NotFoundError("Project");
+  }
+
+  return { pool: getPool(project.dbName), dbName: project.dbName };
+}
+
 // Extend Fastify types
 declare module "fastify" {
+  interface FastifyInstance {
+    jwtSecret: string;
+    /**
+     * preHandler: authenticate then attach the project DB pool.
+     * Use this instead of [authenticateRequest] on routes that need DB access.
+     */
+    authenticateAndAttachDb: (
+      request: FastifyRequest,
+      reply: FastifyReply
+    ) => Promise<void>;
+  }
+
   interface FastifyRequest {
     /** mysql2 connection pool for the current project's database */
     dbPool?: Pool;
@@ -60,25 +89,17 @@ declare module "fastify" {
   }
 }
 
-export async function dbConnectionPlugin(fastify: FastifyInstance) {
-  /**
-   * preHandler hook that resolves the project's database and
-   * attaches a connection pool to the request.
-   *
-   * Requires request.projectId to be set (by the JWT plugin).
-   */
-  fastify.addHook(
-    "preHandler",
-    async (request: FastifyRequest, reply: FastifyReply) => {
+async function dbConnectionPluginFn(fastify: FastifyInstance) {
+  fastify.decorate(
+    "authenticateAndAttachDb",
+    async function (request: FastifyRequest, reply: FastifyReply) {
+      // 1. Authenticate (sets request.projectId)
+      await (fastify as any).authenticateRequest(request, reply);
+
       const projectId = request.projectId;
+      if (!projectId) return; // health checks / no-project routes
 
-      if (!projectId) {
-        // No project context — skip pool attachment
-        // (health check, schema routes without project, etc.)
-        return;
-      }
-
-      // Look up the project to get its database name
+      // 2. Look up the project database name
       const project = await prismaClient.project.findUnique({
         where: { id: projectId },
         select: { dbName: true },
@@ -113,3 +134,8 @@ export async function dbConnectionPlugin(fastify: FastifyInstance) {
     poolCache.clear();
   });
 }
+
+export const dbConnectionPlugin = fp(dbConnectionPluginFn, {
+  name: "db-connection-plugin",
+  dependencies: ["jwt-plugin"],
+});

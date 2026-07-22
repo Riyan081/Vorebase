@@ -23,7 +23,7 @@ export async function rpcRoutes(fastify: FastifyInstance) {
     Body: Record<string, unknown>;
   }>(
     "/rest/v1/rpc/:fn",
-    { preHandler: [fastify.authenticateRequest] },
+    { preHandler: [fastify.authenticateAndAttachDb] },
     async (request, reply) => {
       const { fn } = request.params;
       const pool = request.dbPool;
@@ -44,7 +44,7 @@ export async function rpcRoutes(fastify: FastifyInstance) {
       const sql = `CALL ${escapedFn}(${placeholders})`;
 
       try {
-        const [rows] = await pool.execute(sql, values);
+        const [rows] = await pool.execute(sql, values as any[]);
 
         reply.send({
           data: rows,

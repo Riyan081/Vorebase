@@ -43,7 +43,14 @@ export default function SqlEditorView() {
       const resultRows = Array.isArray(res.data) ? res.data : [];
       setResults(resultRows);
       setExecutionTime(duration);
-      setMessages([{ type: "success", text: `Query returned ${resultRows.length} row(s) in ${duration}ms` }]);
+
+      // Detect if this was a DDL/DML query (no SELECT-like columns in result)
+      const isDdl = resultRows.length > 0 && "affected_rows" in resultRows[0];
+      const successMsg = isDdl
+        ? `Query executed successfully in ${duration}ms`
+        : `Query returned ${resultRows.length} row(s) in ${duration}ms`;
+
+      setMessages([{ type: "success", text: successMsg }]);
 
       // Add to local history
       setQueryHistory((prev) => [

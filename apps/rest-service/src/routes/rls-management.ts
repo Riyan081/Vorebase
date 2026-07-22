@@ -23,7 +23,7 @@ export async function rlsManagementRoutes(fastify: FastifyInstance) {
     Querystring: { projectId: string; tableName?: string };
   }>(
     "/rest/v1/rls/policies",
-    { preHandler: [fastify.authenticateRequest] },
+    { preHandler: [fastify.authenticateAndAttachDb] },
     async (request, reply) => {
       const { projectId, tableName } = request.query;
 
@@ -63,7 +63,7 @@ export async function rlsManagementRoutes(fastify: FastifyInstance) {
     };
   }>(
     "/rest/v1/rls/policies",
-    { preHandler: [fastify.authenticateRequest] },
+    { preHandler: [fastify.authenticateAndAttachDb] },
     async (request, reply) => {
       const { name, tableName, operation, check, roles, projectId } = request.body;
 
@@ -111,7 +111,7 @@ export async function rlsManagementRoutes(fastify: FastifyInstance) {
     };
   }>(
     "/rest/v1/rls/policies/:id",
-    { preHandler: [fastify.authenticateRequest] },
+    { preHandler: [fastify.authenticateAndAttachDb] },
     async (request, reply) => {
       const { id } = request.params;
       const { name, tableName, operation, check, roles } = request.body;
@@ -148,7 +148,7 @@ export async function rlsManagementRoutes(fastify: FastifyInstance) {
    */
   fastify.delete<{ Params: { id: string } }>(
     "/rest/v1/rls/policies/:id",
-    { preHandler: [fastify.authenticateRequest] },
+    { preHandler: [fastify.authenticateAndAttachDb] },
     async (request, reply) => {
       const { id } = request.params;
 
@@ -175,7 +175,7 @@ export async function rlsManagementRoutes(fastify: FastifyInstance) {
    */
   fastify.patch<{ Params: { id: string } }>(
     "/rest/v1/rls/policies/:id/toggle",
-    { preHandler: [fastify.authenticateRequest] },
+    { preHandler: [fastify.authenticateAndAttachDb] },
     async (request, reply) => {
       const { id } = request.params;
 

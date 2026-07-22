@@ -108,9 +108,9 @@ export async function bucketRoutes(fastify: FastifyInstance) {
         if (!exists) {
           await fastify.minio.makeBucket(minioBucketName);
         }
-      } catch (err) {
-        logger.error({ err, minioBucketName }, "Failed to create MinIO bucket");
-        throw new Error("Failed to create storage bucket");
+      } catch (err: any) {
+        logger.error({ err, errMsg: err?.message, errCode: err?.code, minioBucketName }, "Failed to create MinIO bucket");
+        throw new Error(`Failed to create storage bucket: ${err?.message || err}`);
       }
 
       // Create metadata record
@@ -119,7 +119,7 @@ export async function bucketRoutes(fastify: FastifyInstance) {
           name,
           isPublic,
           fileSizeLimit: fileSizeLimit || null,
-          allowedMimeTypes: allowedMimeTypes || null,
+          allowedMimeTypes: allowedMimeTypes ?? undefined,
           projectId,
         },
       });
@@ -197,12 +197,18 @@ export async function bucketRoutes(fastify: FastifyInstance) {
     { preHandler: [fastify.authenticateRequest] },
     async (request, reply) => {
       const { id } = request.params;
+      const projectId = request.projectId;
 
+      // SECURITY: Verify bucket belongs to the authenticated user's project
       const bucket = await prismaClient.storageBucket.findUnique({
         where: { id },
       });
 
       if (!bucket) {
+        throw new NotFoundError("Bucket");
+      }
+
+      if (projectId && bucket.projectId !== projectId) {
         throw new NotFoundError("Bucket");
       }
 

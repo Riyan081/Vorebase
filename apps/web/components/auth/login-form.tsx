@@ -1,12 +1,11 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { VorebaseLogo } from "@/lib/icons";
-import { OAuthButtons } from "@/components/auth/oauth-buttons";
 import { adminLogin } from "@/lib/api";
-import { setToken, setRefreshToken, setAdminUser } from "@/lib/auth";
+import { setToken, setRefreshToken, setAdminUser, isAuthenticated } from "@/lib/auth";
 
 export default function LoginForm() {
   const router = useRouter();
@@ -14,6 +13,13 @@ export default function LoginForm() {
   const [password, setPassword] = useState("");
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState("");
+
+  // Redirect if already logged in
+  useEffect(() => {
+    if (isAuthenticated()) {
+      router.replace("/projects");
+    }
+  }, [router]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -49,15 +55,6 @@ export default function LoginForm() {
       <h1 className="text-2xl font-bold text-text-primary text-center mb-1">Welcome back</h1>
       <p className="text-sm text-text-secondary text-center mb-6">Sign in to your account</p>
 
-      {/* OAuth Buttons */}
-      <OAuthButtons />
-
-      {/* Divider */}
-      <div className="flex items-center gap-3 mb-6">
-        <div className="flex-1 h-px bg-border" />
-        <span className="text-xs text-text-muted">or continue with email</span>
-        <div className="flex-1 h-px bg-border" />
-      </div>
 
       {/* Form */}
       <form onSubmit={handleSubmit} className="space-y-4">

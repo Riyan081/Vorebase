@@ -11,6 +11,7 @@
  */
 
 import type { FastifyInstance, FastifyRequest, FastifyReply } from "fastify";
+import fp from "fastify-plugin";
 import {
   extractBearerToken,
   verifyToken,
@@ -38,7 +39,7 @@ declare module "fastify" {
   }
 }
 
-export async function jwtPlugin(fastify: FastifyInstance) {
+async function jwtPluginFn(fastify: FastifyInstance) {
   const secret = process.env.JWT_SECRET;
   if (!secret || secret.length < 32) {
     throw new Error(
@@ -61,32 +62,31 @@ export async function jwtPlugin(fastify: FastifyInstance) {
       );
 
       if (bearerToken) {
-        try {
-          // Try as user token first
-          const payload = verifyToken<JwtPayload>(bearerToken, secret);
+        // Decode first (no verification) to check role field
+        const decoded = verifyToken<JwtPayload | AdminJwtPayload>(bearerToken, secret);
+
+        // Admin tokens have role "admin" or "super_admin" and NO project_id field
+        const isAdminToken = (decoded.role === "admin" || decoded.role === "super_admin") && !("project_id" in decoded);
+
+        if (isAdminToken) {
+          // Admin token — project comes from x-project-id header or query param
+          request.user = decoded;
+          request.userRole = ROLES.SERVICE_ROLE;
+          const headerProjectId = request.headers["x-project-id"] as string | undefined;
+          const queryProjectId = (request.query as any)?.projectId;
+          if (headerProjectId) {
+            request.projectId = headerProjectId;
+          } else if (queryProjectId) {
+            request.projectId = queryProjectId;
+          }
+          return;
+        } else {
+          // User token — project_id is embedded in the token
+          const payload = decoded as JwtPayload;
           request.user = payload;
           request.projectId = payload.project_id;
           request.userRole = payload.role;
           return;
-        } catch {
-          try {
-            // Try as admin token
-            const payload = verifyToken<AdminJwtPayload>(bearerToken, secret);
-            request.user = payload;
-            // Admin tokens use service_role level access
-            request.userRole = ROLES.SERVICE_ROLE;
-            // Project ID comes from header or query param for admin tokens
-            const headerProjectId = request.headers["x-project-id"] as string | undefined;
-            const queryProjectId = (request.query as any)?.projectId;
-            if (headerProjectId) {
-              request.projectId = headerProjectId;
-            } else if (queryProjectId) {
-              request.projectId = queryProjectId;
-            }
-            return;
-          } catch {
-            throw new AuthError("Invalid or expired token");
-          }
         }
       }
 
@@ -119,3 +119,7 @@ export async function jwtPlugin(fastify: FastifyInstance) {
     }
   );
 }
+
+export const jwtPlugin = fp(jwtPluginFn, {
+  name: "jwt-plugin",
+});

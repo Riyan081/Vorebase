@@ -117,8 +117,14 @@ export function compileInsertQuery(
 
   // Use the keys from the first row as column list
   const columns = Object.keys(rows[0]!);
+
+  // Empty columns = all-defaults insert: INSERT INTO table () VALUES ()
+  // MySQL fills in AUTO_INCREMENT, DEFAULT CURRENT_TIMESTAMP etc automatically
   if (columns.length === 0) {
-    throw new Error("No columns specified for insert");
+    return {
+      sql: `INSERT INTO ${escapedTable} () VALUES ()`,
+      params: [],
+    };
   }
 
   const escapedColumns = columns.map((c) => escapeIdentifier(c)).join(", ");
